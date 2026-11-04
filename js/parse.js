@@ -6,6 +6,7 @@
 // 굵게(**), 번호(1.), 글머리(- * • ·), 제목(#), 콜론 위치가 달라도 읽는다.
 
 import { ANXIETY, HIDDEN, ATTACH_TYPES } from './items.js';
+import { decode, SLOTS, levelToPct } from './codebook.js';
 
 const compact = (s) => s.replace(/[\s*_`~:：\[\]【】()（）'"“”‘’]/g, '');
 
@@ -87,8 +88,44 @@ function parseCompact(text) {
   return { npc, pc, items, deepest, found: Object.keys(items).length };
 }
 
+/* 물약 코드(MUL-…) + 항목별 한 줄 */
+const LINE_RE = /^\s*[*\-•>]*\s*\**\s*(A|H)\s*0?(\d{1,2})\s*\**\s*[.:：=)\-–]?\s*(.+)$/i;
+function parseMul(text) {
+  const d = decode(text);
+  if (!d) return null;
+  if (d.error) return { error: d.error, items: {}, found: 0, npc: null, pc: null, deepest: null };
+  const lines = {};
+  let deepest = null, npc = null, pc = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\*\*/g, '').trim();
+    if (!line || /^MUL/i.test(line)) continue;
+    const who = line.match(/^NPC\s*[=:：]\s*([^|]+?)\s*(?:\|\s*PC\s*[=:：]\s*(.+))?$/i);
+    if (who) { npc = who[1].trim(); pc = who[2] ? who[2].trim() : pc; continue; }
+    const dp = line.match(/^DEEP\s*[.:：=]?\s*(.+)$/i);
+    if (dp) {
+      const [t, ...rest] = dp[1].split('|').map((x) => x.trim());
+      deepest = { title: t.replace(/^["“'‘]|["”'’]$/g, ''), body: rest.join(' ') };
+      continue;
+    }
+    const m = line.match(LINE_RE);
+    if (m) lines[`${m[1].toUpperCase()}${m[2].padStart(2, '0')}`] = m[3].replace(/^\d{1,3}\s*%?\s*\|\s*/, '').split('|')[0].trim();
+  }
+  const items = {};
+  SLOTS.forEach(({ code, def }, i) => {
+    const group = code[0] === 'A' ? 'anxiety' : 'hidden';
+    const it = { key: def.key, group, name: def.name, pct: levelToPct(d.levels[i]), level: d.levels[i],
+      uncertain: d.fuzzy.includes(i), tag: null, status: lines[code] || '', desc: '' };
+    if (def.key === 'attach') { it.types = d.type ? [d.type] : []; it.tag = d.type; }
+    items[def.key] = it;
+  });
+  return { npc, pc, items, deepest, found: 18, lines: Object.keys(lines).length, fuzzy: d.fuzzy.length, code: true };
+}
+
 export function parseAnalysis(raw) {
-  const compact = parseCompact(String(raw || '').replace(/\r\n?/g, '\n').replace(/```[a-z]*\n?/gi, ''));
+  const text = String(raw || '').replace(/\r\n?/g, '\n').replace(/```[a-z]*\n?/gi, '');
+  const mul = parseMul(text);
+  if (mul) return mul;
+  const compact = parseCompact(text);
   if (compact.found >= 6) return compact;
   return parseLong(raw);
 }

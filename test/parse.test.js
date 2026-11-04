@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseAnalysis } from '../js/parse.js';
-import { SAMPLE } from '../js/sample.js';
+import { SAMPLE_LONG as SAMPLE } from '../js/sample.js';
 
 test('예시 처방을 전부 읽는다', () => {
   const r = parseAnalysis(SAMPLE);

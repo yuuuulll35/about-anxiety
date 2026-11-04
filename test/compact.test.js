@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseAnalysis } from '../js/parse.js';
-import { SAMPLE } from '../js/sample.js';
+import { SAMPLE_LONG as SAMPLE } from '../js/sample.js';
 import { ANXIETY, HIDDEN } from '../js/items.js';
 
 // 긴 예시를 짧은 물약 코드로 바꿔 같은 결과가 나오는지 본다

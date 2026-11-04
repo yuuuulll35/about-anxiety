@@ -184,7 +184,7 @@ function goStep(s) {
       setPhase('paste');
       ask('AI 답변을 받아 왔어?',
         `<div class="say-row"><button class="mini primary" id="fClip" type="button">📥 붙여넣기</button><button class="mini" id="fRecopy" type="button">주문 다시 복사</button></div>
-         <textarea id="fText" rows="2" placeholder="또는 여기에 붙여넣기 · [POTION] 으로 시작하는 답변" spellcheck="false">${esc(draftText)}</textarea>
+         <textarea id="fText" rows="2" placeholder="또는 여기에 붙여넣기 · MUL- 로 시작하는 블록" spellcheck="false">${esc(draftText)}</textarea>
          <p class="check" id="fCheck" aria-live="polite"></p>
          <button class="mini go wide" id="fBrew" type="button" disabled>솥에 불 지피기</button>`,
         (f) => {
@@ -212,12 +212,24 @@ function checkPaste(f) {
   const t = draftText.trim();
   if (!t) { out.innerHTML = ''; btn.disabled = true; return; }
   const r = parseAnalysis(t);
-  const a = ANXIETY.filter((d) => r.items[d.key]).length;
-  const h = HIDDEN.filter((d) => r.items[d.key]).length;
-  const ok = r.found >= 6 && a >= 4;
   const mark = (n, max) => `<span class="${n === max ? 'ok' : n ? 'part' : 'no'}">${n}/${max}</span>`;
-  out.innerHTML = `재료 ${mark(a, 12)} · 환영 ${mark(h, 6)} · 마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>`
-    + (ok ? '' : '<br><span class="no">답변 전체를 넣어 줘. 앞뒤 잡담은 괜찮아.</span>');
+  const deep = `마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>`;
+  let ok, html;
+  if (r.error) {
+    ok = false;
+    html = '<span class="no">물약 코드가 깨졌어. 코드 줄(MUL-…)을 다시 복사해 줘.</span>';
+  } else if (r.code) {
+    ok = true;
+    html = `물약 코드 <span class="ok">✓</span> · 상태값 ${mark(r.lines, 18)} · ${deep}`
+      + (r.fuzzy ? `<br><span class="part">코드 ${r.fuzzy}칸이 흐려서 그 재료는 보통으로 읽을게.</span>` : '');
+  } else {
+    const a = ANXIETY.filter((d) => r.items[d.key]).length;
+    const h = HIDDEN.filter((d) => r.items[d.key]).length;
+    ok = r.found >= 6 && a >= 4;
+    html = `재료 ${mark(a, 12)} · 환영 ${mark(h, 6)} · ${deep}`
+      + (ok ? '' : '<br><span class="no">물약 코드(MUL-…)가 든 블록을 통째로 넣어 줘.</span>');
+  }
+  out.innerHTML = html;
   btn.disabled = !ok;
   btn.classList.toggle('ready', ok);
 }
@@ -384,10 +396,10 @@ $('#loadSample').addEventListener('click', () => { book.close(); runSample(); })
 function startBrew(text, isSample) {
   const parsed = parseAnalysis(text);
   const anxFound = ANXIETY.filter((d) => parsed.items[d.key]).length;
-  if (parsed.found < 6 || anxFound < 4) { toast('재료를 충분히 찾지 못했어요. 답변 전체를 붙여 넣어 주세요.'); return; }
+  if (parsed.error || parsed.found < 6 || anxFound < 4) { toast(parsed.error ? '물약 코드가 깨졌어요. 코드 줄을 다시 복사해 주세요.' : '재료를 충분히 찾지 못했어요. 답변 전체를 붙여 넣어 주세요.'); return; }
   data = parsed;
-  const useNpc = isSample ? (parsed.npc || 'NPC') : (npc || parsed.npc || 'NPC');
-  const usePc = isSample ? (parsed.pc || '') : (pc || parsed.pc || '');
+  const useNpc = isSample ? (parsed.npc || '서도윤') : (npc || parsed.npc || 'NPC');
+  const usePc = isSample ? (parsed.pc || '유하') : (pc || parsed.pc || '');
   npc = useNpc; pc = usePc;
   // 붙여넣는 순간 나만의 물약을 고정한다
   const guesses = {};
@@ -597,6 +609,7 @@ function showIng(key, fresh) {
       ${it.pct != null ? `<p class="s-pct" ${fresh ? `data-to="${it.pct}"` : ''}>${fresh ? 0 : it.pct}<small>%</small></p>` : '<p class="s-pct">—</p>'}
     </div>
     ${meterHTML(it.pct, guess, d.color)}
+    ${it.uncertain ? '<p class="s-hint">코드가 흐려서 보통(4단계)으로 읽었어.</p>' : ''}
     ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">나만의 물약 <b>${TIER_LABEL[guess]}</b> → 진짜 <b>${TIER_LABEL[tier]}</b> · ${hit ? '똑같다!' : '달랐다'}</p>` : ''}
     ${it.status ? `<p class="label-sticker" style="--c:${d.color}">${esc(it.status)}</p>` : ''}
     ${it.desc ? `<p class="s-desc-title">재료 감정서</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
