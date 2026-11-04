@@ -4,7 +4,7 @@ import { SAMPLE } from './sample.js';
 import { OOC_PROMPT } from './prompt.js';
 import { FILM_ICONS } from './icons.js';
 import { cauldronSVG } from './cauldron.js';
-import { mixBrew, colorName, hsl, moonPhase } from './brew.js';
+import { mixBrew, colorName, hsl, moonPhase, josa } from './brew.js';
 import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js';
 import { setSound, soundOn, sfx, buzz } from './sound.js';
 
@@ -86,13 +86,14 @@ pc = store.get('aa.pc') || '';
 
 const GUESS_PCT = { low: 20, mid: 55, high: 85 };
 const GUESS_H = { low: 24, mid: 55, high: 88 };
-const CYCLE = [null, 'low', 'mid', 'high'];
 let G = { g: {}, attach: null };
 try { G = { ...G, ...JSON.parse(store.get('aa.guess') || '{}') }; } catch { /* 무시 */ }
 const saveGuess = () => store.set('aa.guess', JSON.stringify(G));
 const guessN = () => Object.keys(G.g).length;
 let guessBrew = null;
-let step = 'name'; // 준비 단계: name → pc → guess → attach → ooc → paste
+let step = 'intro'; // 준비 단계: intro → name → pc → guess → attach → ooc → paste
+let introAt = 0;
+let curGuess = null; // 지금 묻고 있는 병
 
 function paintWho() {
   $('#who').hidden = !npc;
@@ -113,12 +114,18 @@ function goStep(s) {
   store.set('aa.step', s);
   stage.dataset.step = s;
   $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
+  stage.dataset.focus = '';
   act(null);
   switch (s) {
+    case 'intro':
+      setPhase('title');
+      introAt = 0;
+      introLine();
+      break;
     case 'name': {
       setPhase('title');
-      ask('누구의 속마음을 끓일까냥?',
-        `<div class="say-row"><input id="fNpc" maxlength="20" placeholder="NPC 이름" autocomplete="off" enterkeyhint="next" value="${esc(npc)}"><button class="mini primary" id="fNext" type="button" ${npc ? '' : 'disabled'}>다음</button></div>
+      ask('그럼 시작하자! 오늘은 <b>누구의 속마음</b>을 끓일까냥?',
+        `<div class="say-row"><input id="fNpc" maxlength="20" placeholder="NPC 이름" autocomplete="off" enterkeyhint="next"><button class="mini primary" id="fNext" type="button" disabled>다음</button></div>
          <button class="link-btn" type="button" id="fSample">예시로 먼저 구경하기</button>`,
         (f) => {
           const inp = $('#fNpc', f), nx = $('#fNext', f);
@@ -134,8 +141,8 @@ function goStep(s) {
     }
     case 'pc': {
       setPhase('title');
-      ask(`<b>${esc(npc)}</b>! 너는 누구야?`,
-        `<div class="say-row"><input id="fPc" maxlength="20" placeholder="PC 이름 (선택)" autocomplete="off" enterkeyhint="next" value="${esc(pc)}"><button class="mini primary" id="fNext" type="button">${pc ? '다음' : '건너뛰기'}</button></div>`,
+      ask(`<b>${esc(npc)}</b>, 좋아. 그럼 너는? <small class="say-sub">${esc(npc)}의 상대(PC) 이름</small>`,
+        `<div class="say-row"><input id="fPc" maxlength="20" placeholder="PC 이름 (선택)" autocomplete="off" enterkeyhint="next"><button class="mini primary" id="fNext" type="button">건너뛰기</button></div>`,
         (f) => {
           const inp = $('#fPc', f), nx = $('#fNext', f);
           inp.addEventListener('input', () => { nx.textContent = inp.value.trim() ? '다음' : '건너뛰기'; });
@@ -148,7 +155,8 @@ function goStep(s) {
     }
     case 'guess':
       setPhase('guess');
-      guessHint();
+      curGuess = null;
+      guessIntro();
       break;
     case 'attach':
       setPhase('guess');
@@ -212,31 +220,79 @@ function checkPaste(f) {
   btn.classList.toggle('ready', ok);
 }
 
-function guessHint() {
+/* 튜토리얼: 한 줄씩, 말하는 대상을 비춘다 */
+const INTRO = [
+  { t: '어서 와, 의뢰인! 여긴 <b>마녀의 속마음 실험실</b>. 나는 조수 고양이 <b>먹물</b>이다냥.' },
+  { t: '여기선 캐릭터의 <b>속마음</b>을 물약으로 끓여. 천장에 매달린 <b>병 12개</b>가 마음속 불안 12가지야.', f: 'rack' },
+  { t: '먼저 네 감으로 병마다 농도를 골라 <b>나만의 물약</b>을 만들어 봐. 정답은 없어!', f: 'rack' },
+  { t: '그다음 <b>주문서</b>의 주문(OOC)을 롤플 채팅에 보내면, AI가 <b>진짜 레시피</b>를 알려 줘.', f: 'book' },
+  { t: '받아 온 레시피로 이 솥에 <b>진짜 물약</b>을 끓이면, 네 물약과 얼마나 같은지 보여 줄게.', f: 'pot' },
+];
+function introLine() {
+  const L = INTRO[introAt];
+  stage.dataset.focus = L.f || '';
+  const last = introAt === INTRO.length - 1;
+  ask(`${L.t}`,
+    `<div class="say-row end"><span class="dots">${INTRO.map((_, i) => `<i class="${i === introAt ? 'on' : ''}"></i>`).join('')}</span>
+       <button class="link-btn" type="button" id="fSkipIntro">${last ? '' : '설명 건너뛰기'}</button>
+       <button class="mini primary" id="fNext" type="button">${last ? '좋아, 시작!' : '다음 ▸'}</button></div>`,
+    (f) => {
+      const next = () => { sfx.tap(); if (last) goStep('name'); else { introAt++; introLine(); } };
+      $('#fNext', f).addEventListener('click', next);
+      const sk = $('#fSkipIntro', f); if (last) sk.remove(); else sk.addEventListener('click', () => goStep('name'));
+      $('#fNext', f).focus({ preventScroll: true });
+    });
+}
+
+const P = () => pc || '상대';
+function qText(d) {
+  const p = P();
+  return d.q.replace('{P가}', josa(p, '이', '가')).replace('{P를}', josa(p, '을', '를')).replace('{P에게}', p + '에게');
+}
+
+function guessIntro() {
   const n = guessN();
-  if (!n) {
-    ask(`네 감으로 먼저 끓여 봐. <b>병을 톡!</b>`, '<button class="link-btn" type="button" id="fSkip">건너뛰고 진짜 레시피 받기</button>',
-      (f) => $('#fSkip', f).addEventListener('click', () => { G = { g: {}, attach: null }; saveGuess(); paintGuess(); goStep('ooc'); }));
-    hangEl(ANXIETY[0].key).classList.add('coach');
-  } else if (n === 1) {
-    ask('누를수록 진해져. <b>옅음 → 보통 → 진함 → 빼기</b>');
-  } else if (n < 12) {
-    ask(`좋아, ${n}병째. 다 됐으면 <b>완성</b>!`);
-  } else {
-    ask('12병 다 채웠다냥. <b>완성</b>을 눌러!');
-  }
-  act(n ? `완성 (${n}/12)` : null, () => goStep('attach'));
+  ask(n ? `이어서 골라 볼까? 병을 누르면 무슨 마음인지 알려 줄게.` : `이제 <b>나만의 물약</b>을 만들 차례. 병을 하나 눌러 봐. 무슨 마음인지 알려 줄게.`,
+    '<button class="link-btn" type="button" id="fSkip">건너뛰고 진짜 레시피 받기</button>',
+    (f) => $('#fSkip', f).addEventListener('click', () => { G = { g: {}, attach: null }; saveGuess(); paintGuess(); goStep('ooc'); }));
+  const first = ANXIETY.find((d) => !G.g[d.key]) || ANXIETY[0];
+  hangEl(first.key).classList.add('coach');
+  guessAct();
+}
+
+function guessAct() {
+  const n = guessN();
+  act(n >= 12 ? '나만의 물약 완성!' : n ? `여기까지 완성 (${n}/12)` : null, () => goStep('attach'));
+}
+
+function guessAsk(key) {
+  curGuess = key;
+  $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
+  $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
+  hangEl(key).classList.add('asking');
+  const d = ANXIETY.find((x) => x.key === key);
+  const i = ANXIETY.indexOf(d);
+  const cur = G.g[key];
+  ask(`<span class="q-tag">${pad2(i + 1)} · ${esc(d.short)} <small>${guessN()}/12</small></span><b>${esc(qText(d))}</b>, ${esc(josa(npc, '은', '는'))} 얼마나 클까?`,
+    `<div class="chips three">${['low', 'mid', 'high'].map((t) => `<button type="button" data-t="${t}" class="${cur === t ? 'on' : ''}"><span class="lvl ${t}"></span>${TIER_LABEL[t]}</button>`).join('')}</div>`,
+    (f) => $$('[data-t]', f).forEach((b) => b.addEventListener('click', () => {
+      G.g[key] = b.dataset.t; saveGuess(); paintGuess(); sfx.plop(); buzz(8);
+      const next = ANXIETY.slice(i + 1).concat(ANXIETY.slice(0, i)).find((x) => !G.g[x.key]);
+      guessAct();
+      if (next) setTimeout(() => guessAsk(next.key), reduced ? 0 : 260);
+      else {
+        $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
+        ask('12병 다 골랐다냥! 아래 <b>완성</b>을 눌러 줘. 바꾸고 싶은 병은 다시 눌러도 돼.');
+      }
+    })));
 }
 
 function onHang(key) {
-  if (phase === 'title') { toast('먼저 이름부터 알려 줘.'); $('#sayForm input')?.focus(); return; }
+  if (phase === 'title') { toast(step === 'intro' ? '먹물의 설명을 먼저 들어 줘.' : '먼저 이름부터 알려 줘.'); return; }
   if (phase === 'guess') {
-    if (step !== 'guess') goStep('guess');
-    const next = CYCLE[(CYCLE.indexOf(G.g[key] ?? null) + 1) % CYCLE.length];
-    if (next) G.g[key] = next; else delete G.g[key];
-    saveGuess(); paintGuess(); sfx.tap(); buzz(6);
-    hangEl(key).classList.remove('coach');
-    guessHint();
+    if (step !== 'guess') { step = 'guess'; store.set('aa.step', 'guess'); }
+    sfx.tap();
+    guessAsk(key);
     return;
   }
   if (phase === 'paste') { toast('나만의 물약은 다 만들었어. 이제 AI 답변을 넣어 줘.'); return; }
@@ -368,7 +424,7 @@ function buildHangs() {
     b.style.animationDelay = `${-(i * 0.73) % 4.5}s`;
     b.innerHTML = `
       <span class="bottle" aria-hidden="true"><span class="cork"></span><span class="glass"><span class="liquid"></span><span class="shine"></span></span><span class="q">?</span></span>
-      <span class="label">${esc(lastWord(d.ing))}<small></small></span>`;
+      <span class="label">${esc(d.short)}<small></small></span>`;
     b.addEventListener('click', () => onHang(d.key));
     wrap.appendChild(b);
   });
@@ -715,7 +771,8 @@ $('#restart').addEventListener('click', () => {
   flaskBtn.classList.remove('open', 'knock'); flaskBtn.dataset.hits = '0';
   $('#vialReal').style.setProperty('--v', 'transparent');
   paintGuess(); paintWho();
-  goStep(npc ? 'pc' : 'name');
+  npc = ''; pc = ''; store.set('aa.npc', ''); store.set('aa.pc', ''); paintWho();
+  goStep('name');
 });
 
 /* 바텀시트 끌어 닫기 */
@@ -729,10 +786,13 @@ $('#restart').addEventListener('click', () => {
 
 /* ───────── 시작 ───────── */
 buildHangs();
-paintWho();
-paintGuess();
 {
   const saved = store.get('aa.step');
-  const ok = ['name', 'pc', 'guess', 'attach', 'ooc', 'paste'];
-  goStep(ok.includes(saved) && (saved === 'name' || npc) ? saved : 'name');
+  if ((saved === 'ooc' || saved === 'paste') && npc) {
+    paintWho(); paintGuess(); goStep(saved);
+  } else {
+    npc = ''; pc = ''; G = { g: {}, attach: null }; draftText = '';
+    store.set('aa.npc', ''); store.set('aa.pc', ''); store.set('aa.text', ''); saveGuess();
+    paintWho(); paintGuess(); goStep('intro');
+  }
 }

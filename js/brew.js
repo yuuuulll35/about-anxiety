@@ -53,6 +53,8 @@ export function colorName({ h, s }) {
 
 const hasJong = (w) => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0; };
 export const wa = (w) => w + (hasJong(w) ? '과' : '와');
+/** 받침에 맞는 조사: josa('유하', '이', '가') → '유하가' */
+export const josa = (w, withJong, without) => w + (hasJong(w) ? withJong : without);
 
 /** 가장 진한 재료 둘로 물약 이름을 짓는다 */
 export function potionName(ranked) {
