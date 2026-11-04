@@ -796,7 +796,7 @@ $('#restart').addEventListener('click', () => {
     raf = requestAnimationFrame(() => {
       raf = 0;
       const r = $('#cat').getBoundingClientRect();
-      const cx = r.left + r.width * .46, cy = r.top + r.height * .55;
+      const cx = r.left + r.width * .46, cy = r.top + r.height * .51;
       const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy) || 1;
       pupils.setAttribute('transform', `translate(${(dx / d * 3).toFixed(1)} ${(dy / d * 2.5).toFixed(1)})`);
     });

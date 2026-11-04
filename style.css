@@ -922,3 +922,13 @@ body { background: #0f0b1d; }
 .cat-eyes { transform-origin: 78px 116px; }
 .cat-paw-g { fill: url(#fur); stroke: rgba(190, 170, 255, .45); stroke-width: 1.5; }
 .cat-bean { fill: #ff9fc8; opacity: .8; }
+
+/* v2.4 · 단순한 고양이로 되돌림 + 깜빡임이 제자리에서 */
+.cat-head { fill: #0f0b1c; stroke: rgba(170, 150, 240, .35); stroke-width: 1.5; stroke-linejoin: round; }
+.cat-eye { fill: var(--lime); filter: drop-shadow(0 0 4px rgba(182, 243, 107, .7)); }
+.cat-pupil { fill: #0b0814; }
+.cat-nose { fill: #ff9fc4; }
+.cat-whisk { stroke: rgba(210, 200, 245, .4); stroke-width: 1.2; stroke-linecap: round; }
+.cat-paw-g { fill: #0f0b1c; stroke: rgba(170, 150, 240, .4); stroke-width: 1.5; }
+.cat-eyes { transform-box: fill-box; transform-origin: center; animation: blinkc 5s infinite; }
+.cat-hatg { transform-box: fill-box; transform-origin: 30% 90%; }
