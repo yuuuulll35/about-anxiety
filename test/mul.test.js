@@ -72,15 +72,18 @@ test('줄에 수치를 붙여 와도 상태값만 남긴다', () => {
   assert.equal(r.items.health.pct, levelToPct(5));
 });
 
-test('주문 조각은 모두 입력 제한 안이고, 항목 정의·변환표·받을 항목이 맞다', () => {
-  for (const p of OOC_PARTS) assert.ok([...p].length <= INPUT_LIMIT, `${[...p].length}자`);
-  assert.equal((OOC_PARTS[0].match(/^[AH]\d\d .+: .+/gm) || []).length, 18);
-  assert.match(OOC_PARTS[0], /근거 없는 수치나 억지스러운 심리 해석은 금지/);
-  assert.match(OOC_PARTS[0], /준비됨/);
-  for (const p of OOC_PARTS.slice(1)) assert.match(p, /0=Q 1=7/);
-  assert.match(OOC_PARTS[3], /혼란형=J/);
-  const all = OOC_STEPS.flatMap((s) => s.expect);
-  assert.equal(all.length, 19);
+test('주문 조각은 각각 입력 제한 안이고, 혼자서 완결된다', () => {
+  assert.equal(OOC_PARTS.length, 3);
+  for (const p of OOC_PARTS) {
+    assert.ok([...p].length <= INPUT_LIMIT, `${[...p].length}자`);
+    assert.match(p, /근거 없는 수치나 억지스러운 심리 해석은 금지/);
+    assert.match(p, /0=Q 1=7/);
+    assert.doesNotMatch(p, /준비됨/);
+    assert.equal((p.match(/^[AH]\d\d .+: .+/gm) || []).length, 6);
+  }
+  assert.match(OOC_PARTS[2], /혼란형=J/);
+  assert.match(OOC_PARTS[2], /DEEP/);
+  assert.equal(OOC_STEPS.flatMap((s) => s.expect).length, 19);
 });
 
 test('상태값 | 설명 을 둘 다 읽는다', () => {

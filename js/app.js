@@ -195,8 +195,8 @@ function orderPanel() {
   const head = cur === -1
     ? '레시피가 다 모였다냥! <b>솥에 불</b>을 지펴.'
     : cur === 0
-      ? (guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자. ' : '') + `주문을 <b>${OOC_STEPS.length}번</b> 나눠 보내. 먼저 ①을 복사해서 채팅에 보내 줘.`
-      : `AI가 답하면 그 답을 복사해서 <b>${'①②③④'[cur]} 답 넣기</b>를 눌러. 그다음 줄로 넘어가면 돼.`;
+      ? (guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자. ' : '') + `주문을 <b>${OOC_STEPS.length}번</b> 나눠 보내. ①을 복사해 채팅에 보내고, 답이 오면 그 답을 복사해서 <b>답 넣기</b>.`
+      : `좋아! 이번엔 <b>${'①②③④'[cur]}</b>을 복사해 보내고, 답을 받아 와서 <b>답 넣기</b>.`;
   const allDone = cur === -1 && !showList;
   ask(head, `
     ${allDone ? '<button class="link-btn" type="button" id="fList">주문 목록 다시 보기</button>' : ''}
