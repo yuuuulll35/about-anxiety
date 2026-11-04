@@ -906,3 +906,19 @@ body { background: #0f0b1d; }
 .pot-zone, .stir-ring, .vision-rise { pointer-events: none; }
 .flask-btn { pointer-events: auto; }
 .toast { top: auto; bottom: calc(64px + env(safe-area-inset-bottom)); translate: -50% 10px; }
+
+/* v2.3 · 귀여운 고양이 */
+.cat-head, .cat-ear { fill: url(#fur); stroke: rgba(190, 170, 255, .4); stroke-width: 1.5; stroke-linejoin: round; }
+.cat-ear-in { fill: #ff9fc8; opacity: .55; }
+.cat-blush { fill: #ff8fbd; opacity: .5; filter: blur(1.5px); }
+.cat-eye { fill: url(#iris); filter: drop-shadow(0 0 5px rgba(182, 243, 107, .6)); }
+.cat-pupil { fill: #0d0a18; }
+.cat-glint { fill: #fff; opacity: .95; }
+.cat-nose { fill: #ffa6cb; }
+.cat-mouth { fill: none; stroke: rgba(220, 205, 255, .75); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.cat-whisk { stroke: rgba(220, 210, 250, .5); stroke-width: 1.2; }
+.cat-pom { fill: var(--gold); }
+.cat-hatg { transform-origin: 73px 66px; }
+.cat-eyes { transform-origin: 78px 116px; }
+.cat-paw-g { fill: url(#fur); stroke: rgba(190, 170, 255, .45); stroke-width: 1.5; }
+.cat-bean { fill: #ff9fc8; opacity: .8; }
