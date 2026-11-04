@@ -40,6 +40,7 @@ function toast(msg) {
 const cat = $('#cat');
 function say(html) {
   $('#catSay').innerHTML = html;
+  const box = $('#sayBox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
   cat.classList.remove('talk'); void cat.offsetWidth; cat.classList.add('talk');
 }
 
@@ -135,7 +136,7 @@ function paintHangs() {
       el.classList.toggle('set', !!g);
       el.style.setProperty('--h', g ? GUESS_H[g] + '%' : '0%');
       sm.textContent = g ? TIER_LABEL[g] : (phase === 'guess' ? '?' : '');
-      el.setAttribute('aria-label', `${d.ing}, ${d.name}. 내 짐작 ${g ? TIER_LABEL[g] : '없음'}`);
+      el.setAttribute('aria-label', `${d.ing}, ${d.name}. 나만의 물약 농도 ${g ? TIER_LABEL[g] : '안 정함'}. 눌러서 바꾸기`);
     } else {
       const it = data.items[d.key];
       el.style.setProperty('--h', '70%');
@@ -155,7 +156,7 @@ function onHang(key) {
     saveGuess(); paintGuess(); sfx.tap(); buzz(6);
     return;
   }
-  if (phase === 'paste') { toast('짐작은 봉인됐어요. 주문서를 펴서 결과를 넣어 주세요.'); lecternCall(true); return; }
+  if (phase === 'paste') { toast('나만의 물약은 완성됐어요. 주문서를 펴서 진짜 레시피(AI 답변)를 넣어 주세요.'); lecternCall(true); return; }
   // 실험 중
   const it = data.items[key];
   if (!it) { toast('AI 답변에 이 재료가 없어요.'); return; }
@@ -172,17 +173,17 @@ function paintGuess() {
   if (phase === 'guess' || phase === 'title' || phase === 'paste') {
     setBrewVars(document.documentElement, guessBrew);
     setLevel(guessN() / 12);
-    $('#brewText').textContent = guessBrew ? `예상 · ${colorName(guessBrew)}` : '맹물';
+    $('#brewText').textContent = guessBrew ? `나만의 · ${colorName(guessBrew)}` : '맹물';
   }
   const n = guessN();
   $('#guessStatus').innerHTML = n || G.attach
-    ? `봉인된 짐작: 재료 <b>${n}/12</b>병${G.attach ? ` · 애착 유형 <b>${esc(G.attach)}</b>` : ''}. 솥에 부을 때 하나씩 대조해 드려요.`
-    : '짐작 없이 진행해요. 결과만 보여 드릴게요.';
-  if (phase === 'guess') act(n ? `짐작 봉인 (${n}/12)` : '짐작 봉인', sealGuess);
+    ? `나만의 물약: 재료 <b>${n}/12</b>병${G.attach ? ` · 애착 유형 <b>${esc(G.attach)}</b>` : ''}. 진짜 물약을 끓일 때 하나씩 비교해 드려요.`
+    : '나만의 물약 없이 진행해요. 비교 없이 진짜 물약만 끓여요.';
+  if (phase === 'guess') act(n ? `나만의 물약 완성 (${n}/12)` : '나만의 물약 완성', sealGuess);
 }
 
 function askAttach() {
-  say(`좋아, 봉인했다냥. 마지막으로 <b>${esc(npc || 'NPC')}</b>의 애착 유형은 뭘 것 같아?
+  say(`나만의 물약 완성이다냥! 하나만 더, <b>${esc(npc || 'NPC')}</b>의 애착 유형은 뭘 것 같아?
     <span class="chips">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${t}</button>`).join('')}<button type="button" data-at="">모르겠어</button></span>`);
   $$('#catSay [data-at]').forEach((b) => b.addEventListener('click', () => {
     G.attach = b.dataset.at || null; saveGuess(); sfx.tap();
@@ -214,7 +215,7 @@ function setPhase(p) {
       act('주문서 펴기', () => openBook('name'));
       break;
     case 'guess':
-      say(`AI가 보기 전에 네가 먼저 맞혀 봐. 병을 누를 때마다 <b>옅음 → 보통 → 진함 → 비움</b>. ${esc(npc)}의 불안이 얼마나 진할 것 같아?`);
+      say(`나만의 물약부터 만들어 보자냥. 병 12개는 <b>${esc(npc)}</b>의 불안 12가지야. 네 감으로 병을 눌러 농도를 정해 봐. 누를 때마다 <b>옅음 → 보통 → 진함 → 빼기</b>.`);
       paintGuess();
       break;
     case 'paste':
@@ -223,7 +224,7 @@ function setPhase(p) {
       paintGuess();
       break;
     case 'brew':
-      say(st.guessed || Object.keys(st.guesses).length ? '재료가 준비됐다냥. 병을 눌러 솥에 부으면 네 짐작과 대조해 줄게.' : '재료가 준비됐다냥. 병을 하나씩 눌러 솥에 부어 봐.');
+      say(st.guessed || Object.keys(st.guesses).length ? '진짜 레시피가 들어왔다냥. 병을 솥에 부을 때마다 나만의 물약이랑 비교해 줄게.' : '재료가 준비됐다냥. 병을 하나씩 눌러 솥에 부어 봐.');
       act(null);
       break;
     case 'stir':
@@ -235,7 +236,7 @@ function setPhase(p) {
       act(null);
       break;
     case 'done':
-      say(`완성이다냥! 레시피는 주문서 마지막 장에 적어 뒀어. ${st.guessed ? `네 짐작은 <b>${st.hits}/${st.guessed}</b> 맞았어.` : ''}`);
+      say(`완성이다냥! 레시피는 주문서 마지막 장에 적어 뒀어. ${st.guessed ? `나만의 물약은 진짜와 <b>${st.hits}/${st.guessed}</b>병 같았어.` : ''}`);
       act('레시피 보기', () => openBook('recipe'));
       break;
   }
@@ -470,7 +471,7 @@ function showIng(key, fresh) {
       ${it.pct != null ? `<p class="s-pct" ${fresh ? `data-to="${it.pct}"` : ''}>${fresh ? 0 : it.pct}<small>%</small></p>` : '<p class="s-pct">—</p>'}
     </div>
     ${meterHTML(it.pct, guess, d.color)}
-    ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">내 짐작 <b>${TIER_LABEL[guess]}</b> → 실제 <b>${TIER_LABEL[tier]}</b> · ${hit ? '적중!' : '빗나감'}</p>` : ''}
+    ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">나만의 물약 <b>${TIER_LABEL[guess]}</b> → 진짜 <b>${TIER_LABEL[tier]}</b> · ${hit ? '똑같다!' : '달랐다'}</p>` : ''}
     ${it.status ? `<p class="label-sticker" style="--c:${d.color}">${esc(it.status)}</p>` : ''}
     ${it.desc ? `<p class="s-desc-title">재료 감정서</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
     <div class="s-actions"><button type="button" class="btn primary" data-close>${fresh && left ? `계속 붓기 (${left}병 남음)` : '닫기'}</button></div>
@@ -559,7 +560,7 @@ function showVision(key) {
     </div>
     ${meterHTML(it.pct, null, null)}
     ${quad}
-    ${key === 'attach' && ag ? `<p class="verdict ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">내 짐작 <b>${esc(ag)}</b> · ${(it.types || []).includes(ag) ? '적중!' : '빗나감'}</p>` : ''}
+    ${key === 'attach' && ag ? `<p class="verdict ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">나만의 물약 <b>${esc(ag)}</b> · ${(it.types || []).includes(ag) ? '똑같다!' : '달랐다'}</p>` : ''}
     ${key === 'attach' && it.tag && !(it.types || []).length ? `<p class="s-hint">${esc(it.tag)}</p>` : ''}
     ${it.status ? `<p class="label-sticker">${esc(it.status)}</p>` : ''}
     ${it.desc ? `<p class="s-desc-title">연기가 보여 준 것</p><p class="s-desc">${esc(it.desc)}</p>` : ''}

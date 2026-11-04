@@ -14,8 +14,8 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
   L.push({ t: 'title', s: potionName(ranked) });
   if (brew && guessBrew) {
     L.push({ t: 'swatch2',
-      a: { color: hsl(guessBrew.h, guessBrew.s, guessBrew.l), s: `내 짐작 · ${colorName(guessBrew)}` },
-      b: { color: hsl(brew.h, brew.s, brew.l), s: `실제 · ${colorName(brew)}` } });
+      a: { color: hsl(guessBrew.h, guessBrew.s, guessBrew.l), s: `나만의 물약 · ${colorName(guessBrew)}` },
+      b: { color: hsl(brew.h, brew.s, brew.l), s: `진짜 물약 · ${colorName(brew)}` } });
   } else if (brew) L.push({ t: 'swatch', color: hsl(brew.h, brew.s, brew.l), s: `${colorName(brew)} 물약` });
   L.push({ t: 'hr' });
   L.push({ t: 'row', k: '의뢰 대상', v: npc });
@@ -50,7 +50,7 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
     L.push({ t: 'row', k: '가장 진한 재료', v: `${top.name.replace(/ ?(불안도|염려도)$/, '')} ${data.items[top.key].pct}%` });
     L.push({ t: 'row', k: '가장 옅은 재료', v: `${low.name.replace(/ ?(불안도|염려도)$/, '')} ${data.items[low.key].pct}%` });
   }
-  L.push({ t: 'row', k: '짐작 적중', v: guessed ? `${hits}/${guessed}` : '—' });
+  L.push({ t: 'row', k: '진짜와 같은 병', v: guessed ? `${hits}/${guessed}` : '—' });
   L.push({ t: 'row', k: '마녀 등급', v: witchRank(guessed, hits), big: true });
   if (data.deepest) {
     L.push({ t: 'hr' });

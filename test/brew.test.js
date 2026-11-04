@@ -38,7 +38,7 @@ test('달의 위상: 2024-01-11 은 삭, 2024-01-25 는 보름', () => {
 });
 
 test('마녀 등급', () => {
-  assert.equal(witchRank(0, 0), '짐작 없이 부은 손');
+  assert.equal(witchRank(0, 0), '비교 없이 부은 손');
   assert.equal(witchRank(12, 12), '대마녀');
   assert.equal(witchRank(4, 3), '숙련 마녀');
   assert.equal(witchRank(10, 1), '솥을 처음 본 사람');

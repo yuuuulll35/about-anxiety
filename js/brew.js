@@ -72,7 +72,7 @@ export function moonPhase(date = new Date()) {
 }
 
 export function witchRank(guessed, hits) {
-  if (!guessed) return '짐작 없이 부은 손';
+  if (!guessed) return '비교 없이 부은 손';
   const r = hits / guessed;
   if (guessed >= 6 && r === 1) return '대마녀';
   if (r >= .75) return '숙련 마녀';
