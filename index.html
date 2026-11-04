@@ -93,25 +93,40 @@
 
       <!-- 오른쪽: 빼꼼 내다보는 고양이 -->
       <div class="familiar" id="cat">
-        <svg class="cat" viewBox="0 0 170 170" aria-hidden="true">
-          <path class="cat-head" d="M30 116 C22 92 30 70 48 62 L42 28 L68 50 C76 48 88 48 96 50 L122 30 L116 66 C130 78 132 102 122 120 C108 142 46 142 30 116 Z"/>
-          <path class="cat-ear-in" d="M48 36 L60 52 L50 58 Z M114 38 L108 58 L100 54 Z"/>
-          <ellipse class="cat-blush" cx="50" cy="108" rx="9" ry="5"/><ellipse class="cat-blush" cx="112" cy="108" rx="9" ry="5"/>
-          <g class="cat-eyes">
-            <ellipse class="cat-eye" cx="64" cy="92" rx="9" ry="10"/>
-            <ellipse class="cat-eye" cx="98" cy="92" rx="9" ry="10"/>
-            <g id="catPupils"><ellipse class="cat-pupil" cx="64" cy="93" rx="3" ry="7.5"/><ellipse class="cat-pupil" cx="98" cy="93" rx="3" ry="7.5"/></g>
-            <circle class="cat-glint" cx="67" cy="88" r="2"/><circle class="cat-glint" cx="101" cy="88" r="2"/>
+        <svg class="cat" viewBox="0 0 170 210" preserveAspectRatio="xMaxYMax meet" aria-hidden="true">
+          <defs>
+            <linearGradient id="pil" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a2d5c"/><stop offset=".15" stop-color="#271e42"/><stop offset="1" stop-color="#171127"/></linearGradient>
+            <linearGradient id="pilFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".25" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>
+            <mask id="pilMask"><rect x="0" y="0" width="170" height="210" fill="url(#pilFade)"/></mask>
+          </defs>
+          <g class="cat-peek">
+            <path class="cat-head" d="M30 120 C22 96 30 74 48 66 L42 32 L68 54 C76 52 88 52 96 54 L122 34 L116 70 C130 82 132 106 122 124 C108 146 46 146 30 120 Z"/>
+            <path class="cat-ear-in" d="M48 40 L60 56 L50 62 Z"/>
+            <ellipse class="cat-blush" cx="48" cy="112" rx="9" ry="5"/>
+            <g class="cat-eyes">
+              <ellipse class="cat-eye" cx="64" cy="96" rx="9" ry="10"/>
+              <ellipse class="cat-eye" cx="98" cy="96" rx="9" ry="10"/>
+              <g id="catPupils"><ellipse class="cat-pupil" cx="64" cy="97" rx="3" ry="7.5"/><ellipse class="cat-pupil" cx="98" cy="97" rx="3" ry="7.5"/></g>
+              <circle class="cat-glint" cx="67" cy="92" r="2"/><circle class="cat-glint" cx="101" cy="92" r="2"/>
+            </g>
+            <path class="cat-nose" d="M78 110 L86 110 L82 115 Z"/>
+            <path class="cat-mouth" d="M82 115 q-4 5 -9 2 M82 115 q4 5 9 2"/>
+            <path class="cat-whisk" d="M56 114 L30 110 M56 118 L32 122"/>
+            <g class="cat-hatg">
+              <path class="cat-hat" d="M56 60 C62 44 68 30 76 19 C84 8 100 4 114 10 C102 14 96 23 94 34 C92 44 98 52 106 58 Z"/>
+              <path class="cat-band" d="M58 56 C70 51 92 51 104 55 L103 61 C91 57 71 57 59 62 Z"/>
+              <ellipse class="cat-brim" cx="82" cy="62" rx="42" ry="8" transform="rotate(-6 82 62)"/>
+              <path class="cat-star" d="M84 34 L86 39 L91 39 L87 42 L89 47 L84 44 L79 47 L81 42 L77 39 L82 39 Z"/>
+            </g>
           </g>
-          <path class="cat-nose" d="M78 106 L86 106 L82 111 Z"/>
-          <path class="cat-mouth" d="M82 111 q-4 5 -9 2 M82 111 q4 5 9 2"/>
-          <path class="cat-whisk" d="M56 110 L30 106 M56 114 L32 118 M108 110 L134 106 M108 114 L132 118"/>
-          <g class="cat-paw"><ellipse cx="42" cy="152" rx="20" ry="11"/><path d="M34 150 v6 M42 149 v7 M50 150 v6"/></g>
-          <g class="cat-hatg">
-            <path class="cat-hat" d="M56 56 C62 40 68 26 76 15 C84 4 100 0 114 6 C102 10 96 19 94 30 C92 40 98 48 106 54 Z"/>
-            <path class="cat-band" d="M58 52 C70 47 92 47 104 51 L103 57 C91 53 71 53 59 58 Z"/>
-            <ellipse class="cat-brim" cx="82" cy="58" rx="42" ry="8" transform="rotate(-6 82 58)"/>
-            <path class="cat-star" d="M84 30 L86 35 L91 35 L87 38 L89 43 L84 40 L79 43 L81 38 L77 35 L82 35 Z"/>
+          <g class="cat-wall" mask="url(#pilMask)">
+            <rect x="112" y="0" width="58" height="210" fill="url(#pil)"/>
+            <path class="wall-edge" d="M112.5 0 V210"/>
+            <path class="wall-seam" d="M112 70 H170 M112 140 H170 M140 0 V70 M128 70 V140 M150 140 V210"/>
+          </g>
+          <g class="cat-paws">
+            <path class="cat-paw-g" d="M100 128 C100 118 120 116 124 126 C126 134 118 140 108 138 C102 137 100 133 100 128 Z"/>
+            <path class="cat-toe" d="M108 126 v6 M114 125 v7"/>
           </g>
         </svg>
       </div>

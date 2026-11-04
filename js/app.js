@@ -529,6 +529,9 @@ function pour(key) {
     }
     paintHangs();
     st.busy = false;
+    $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
+    const nx = ANXIETY.find((d) => !st.poured.has(d.key));
+    if (nx) hangEl(nx.key).classList.add('coach');
     showIng(key, true);
   });
 }
@@ -793,7 +796,7 @@ $('#restart').addEventListener('click', () => {
     raf = requestAnimationFrame(() => {
       raf = 0;
       const r = $('#cat').getBoundingClientRect();
-      const cx = r.left + r.width * .47, cy = r.top + r.height * .54;
+      const cx = r.left + r.width * .48, cy = r.top + r.height * .46;
       const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy) || 1;
       pupils.setAttribute('transform', `translate(${(dx / d * 4).toFixed(1)} ${(dy / d * 3).toFixed(1)})`);
     });

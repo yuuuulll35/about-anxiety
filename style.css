@@ -648,7 +648,7 @@ button { cursor: pointer; }
   --ink-edge: rgba(12, 8, 22, .7);
   --catw: clamp(110px, 30vw, 200px);
 }
-.stage, .floor, .room { overflow: hidden; overflow: clip; }
+.stage, .room { overflow: hidden; overflow: clip; }
 body { background: #0f0b1d; }
 
 /* 배경: 은은한 안개와 떠다니는 빛가루 */
@@ -886,3 +886,23 @@ body { background: #0f0b1d; }
   .familiar { right: calc(var(--catw) * -.22); bottom: 14%; }
   .say-box { bottom: calc(14% + var(--catw) * .8); }
 }
+
+/* v2.2 · 대화창이 선반에 가리지 않게, 벽 뒤에서 빼꼼 */
+.floor { overflow: visible; }
+.familiar { right: 0 !important; bottom: 0 !important; transform: none !important; animation: none !important; width: calc(var(--catw) * 1.05); }
+.cat-peek { animation: peek2 6s ease-in-out infinite; }
+@keyframes peek2 { 0%, 100% { transform: translateX(0); } 45%, 60% { transform: translateX(-6px) rotate(-2deg); } }
+.cat-wall .wall-edge { stroke: rgba(200, 180, 255, .28); stroke-width: 1.5; }
+.cat-wall .wall-seam { stroke: rgba(0, 0, 0, .35); stroke-width: 1.2; fill: none; }
+.cat-paw-g { fill: #17122a; stroke: rgba(160, 140, 230, .45); stroke-width: 1.5; }
+.cat-toe { stroke: rgba(160, 140, 230, .5); stroke-width: 1.2; stroke-linecap: round; fill: none; }
+@media (min-width: 900px), (min-aspect-ratio: 5 / 4) and (min-width: 700px) {
+  .say-box { top: 16px; bottom: auto !important; }
+}
+
+/* 솥은 보이는 부분만 누를 수 있게 (큰 솥이 선반을 덮지 않도록) */
+.pot { pointer-events: none; }
+.pot .c-rim, .pot .c-inner, .pot .c-liquid, .pot .c-belly { pointer-events: auto; }
+.pot-zone, .stir-ring, .vision-rise { pointer-events: none; }
+.flask-btn { pointer-events: auto; }
+.toast { top: auto; bottom: calc(64px + env(safe-area-inset-bottom)); translate: -50% 10px; }
