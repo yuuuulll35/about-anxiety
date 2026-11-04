@@ -79,15 +79,10 @@ function setBrewVars(target, b) {
 }
 function setLevel(lv) { $$('#pot .cauldron').forEach((p) => p.style.setProperty('--lv', lv.toFixed(2))); }
 
-/* ───────── 짐작 상태 ───────── */
-const npcIn = $('#npcName');
-const pcIn = $('#pcName');
-const rxText = $('#rxText');
-npcIn.value = store.get('aa.npc') || '';
-pcIn.value = store.get('aa.pc') || '';
-rxText.value = store.get('aa.text') || '';
-npcIn.addEventListener('input', () => { store.set('aa.npc', npcIn.value); paintWho(); });
-pcIn.addEventListener('input', () => store.set('aa.pc', pcIn.value));
+/* ───────── 의뢰 정보 · 나만의 물약 상태 ───────── */
+let draftText = store.get('aa.text') || '';
+npc = store.get('aa.npc') || '';
+pc = store.get('aa.pc') || '';
 
 const GUESS_PCT = { low: 20, mid: 55, high: 85 };
 const GUESS_H = { low: 24, mid: 55, high: 88 };
@@ -97,11 +92,264 @@ try { G = { ...G, ...JSON.parse(store.get('aa.guess') || '{}') }; } catch { /* �
 const saveGuess = () => store.set('aa.guess', JSON.stringify(G));
 const guessN = () => Object.keys(G.g).length;
 let guessBrew = null;
+let step = 'name'; // 준비 단계: name → pc → guess → attach → ooc → paste
 
 function paintWho() {
-  const n = (st ? npc : npcIn.value.trim());
-  $('#who').hidden = !n;
-  $('#who').textContent = n ? `${n}의 속마음` : '';
+  $('#who').hidden = !npc;
+  $('#who').textContent = npc ? `${npc}의 속마음` : '';
+}
+
+/* 고양이 대화창 + 그 아래 입력 한 줄 */
+function ask(text, formHtml = '', bind = null) {
+  say(text);
+  const f = $('#sayForm');
+  f.innerHTML = formHtml;
+  f.hidden = !formHtml;
+  if (bind) bind(f);
+}
+
+function goStep(s) {
+  step = s;
+  store.set('aa.step', s);
+  stage.dataset.step = s;
+  $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
+  act(null);
+  switch (s) {
+    case 'name': {
+      setPhase('title');
+      ask('누구의 속마음을 끓일까냥?',
+        `<div class="say-row"><input id="fNpc" maxlength="20" placeholder="NPC 이름" autocomplete="off" enterkeyhint="next" value="${esc(npc)}"><button class="mini primary" id="fNext" type="button" ${npc ? '' : 'disabled'}>다음</button></div>
+         <button class="link-btn" type="button" id="fSample">예시로 먼저 구경하기</button>`,
+        (f) => {
+          const inp = $('#fNpc', f), nx = $('#fNext', f);
+          const ok = () => { nx.disabled = !inp.value.trim(); };
+          inp.addEventListener('input', ok);
+          const go = () => { if (!inp.value.trim()) return; npc = inp.value.trim(); store.set('aa.npc', npc); paintWho(); sfx.tap(); goStep('pc'); };
+          inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+          nx.addEventListener('click', go);
+          $('#fSample', f).addEventListener('click', runSample);
+          if (!matchMedia('(pointer: coarse)').matches) inp.focus({ preventScroll: true });
+        });
+      break;
+    }
+    case 'pc': {
+      setPhase('title');
+      ask(`<b>${esc(npc)}</b>! 너는 누구야?`,
+        `<div class="say-row"><input id="fPc" maxlength="20" placeholder="PC 이름 (선택)" autocomplete="off" enterkeyhint="next" value="${esc(pc)}"><button class="mini primary" id="fNext" type="button">${pc ? '다음' : '건너뛰기'}</button></div>`,
+        (f) => {
+          const inp = $('#fPc', f), nx = $('#fNext', f);
+          inp.addEventListener('input', () => { nx.textContent = inp.value.trim() ? '다음' : '건너뛰기'; });
+          const go = () => { pc = inp.value.trim(); store.set('aa.pc', pc); sfx.tap(); goStep('guess'); };
+          inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+          nx.addEventListener('click', go);
+          if (!matchMedia('(pointer: coarse)').matches) inp.focus({ preventScroll: true });
+        });
+      break;
+    }
+    case 'guess':
+      setPhase('guess');
+      guessHint();
+      break;
+    case 'attach':
+      setPhase('guess');
+      ask('하나만 더! 애착 유형은?',
+        `<div class="chips">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${t}</button>`).join('')}<button type="button" data-at="" class="ghost">모르겠어</button></div>`,
+        (f) => $$('[data-at]', f).forEach((b) => b.addEventListener('click', () => {
+          G.attach = b.dataset.at || null; saveGuess(); sfx.knock(); buzz(10); goStep('ooc');
+        })));
+      break;
+    case 'ooc':
+      setPhase('paste');
+      ask(guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자.' : '<b>진짜 레시피</b>를 받아 오자.',
+        `<button class="mini primary wide" id="fCopy" type="button">📋 주문 복사하기</button>
+         <p class="say-hint">복사해서 롤플 채팅에 보내면 돼.</p>`,
+        (f) => $('#fCopy', f).addEventListener('click', async () => {
+          const ok = await copyText(OOC_PROMPT);
+          if (!ok) { toast('복사하지 못했어요. 주문서 메뉴에서 다시 시도해 주세요.'); return; }
+          store.set('aa.copied', '1'); sfx.cork(); buzz(10);
+          goStep('paste');
+        }));
+      break;
+    case 'paste':
+      setPhase('paste');
+      ask('AI 답변을 받아 왔어?',
+        `<div class="say-row"><button class="mini primary" id="fClip" type="button">📥 붙여넣기</button><button class="mini" id="fRecopy" type="button">주문 다시 복사</button></div>
+         <textarea id="fText" rows="2" placeholder="또는 여기에 길게 눌러 붙여넣기" spellcheck="false">${esc(draftText)}</textarea>
+         <p class="check" id="fCheck" aria-live="polite"></p>
+         <button class="mini go wide" id="fBrew" type="button" disabled>솥에 불 지피기</button>`,
+        (f) => {
+          const ta = $('#fText', f);
+          const update = () => { draftText = ta.value; store.set('aa.text', draftText); checkPaste(f); };
+          ta.addEventListener('input', update);
+          $('#fClip', f).addEventListener('click', async () => {
+            try {
+              const t = await navigator.clipboard.readText();
+              if (!t.trim()) throw new Error('empty');
+              ta.value = t; update(); sfx.plop();
+            } catch { toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); ta.focus(); }
+          });
+          $('#fRecopy', f).addEventListener('click', async () => { if (await copyText(OOC_PROMPT)) toast('주문을 다시 복사했어요.'); });
+          $('#fBrew', f).addEventListener('click', () => startBrew(draftText, false));
+          checkPaste(f);
+        });
+      break;
+  }
+}
+
+/* 붙여 넣는 즉시 읽어서 보여 준다 */
+function checkPaste(f) {
+  const out = $('#fCheck', f), btn = $('#fBrew', f);
+  const t = draftText.trim();
+  if (!t) { out.innerHTML = ''; btn.disabled = true; return; }
+  const r = parseAnalysis(t);
+  const a = ANXIETY.filter((d) => r.items[d.key]).length;
+  const h = HIDDEN.filter((d) => r.items[d.key]).length;
+  const ok = r.found >= 6 && a >= 4;
+  const mark = (n, max) => `<span class="${n === max ? 'ok' : n ? 'part' : 'no'}">${n}/${max}</span>`;
+  out.innerHTML = `재료 ${mark(a, 12)} · 환영 ${mark(h, 6)} · 마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>`
+    + (ok ? '' : '<br><span class="no">답변 전체를 넣어 줘. 앞뒤 잡담은 괜찮아.</span>');
+  btn.disabled = !ok;
+  btn.classList.toggle('ready', ok);
+}
+
+function guessHint() {
+  const n = guessN();
+  if (!n) {
+    ask(`네 감으로 먼저 끓여 봐. <b>병을 톡!</b>`, '<button class="link-btn" type="button" id="fSkip">건너뛰고 진짜 레시피 받기</button>',
+      (f) => $('#fSkip', f).addEventListener('click', () => { G = { g: {}, attach: null }; saveGuess(); paintGuess(); goStep('ooc'); }));
+    hangEl(ANXIETY[0].key).classList.add('coach');
+  } else if (n === 1) {
+    ask('누를수록 진해져. <b>옅음 → 보통 → 진함 → 빼기</b>');
+  } else if (n < 12) {
+    ask(`좋아, ${n}병째. 다 됐으면 <b>완성</b>!`);
+  } else {
+    ask('12병 다 채웠다냥. <b>완성</b>을 눌러!');
+  }
+  act(n ? `완성 (${n}/12)` : null, () => goStep('attach'));
+}
+
+function onHang(key) {
+  if (phase === 'title') { toast('먼저 이름부터 알려 줘.'); $('#sayForm input')?.focus(); return; }
+  if (phase === 'guess') {
+    if (step !== 'guess') goStep('guess');
+    const next = CYCLE[(CYCLE.indexOf(G.g[key] ?? null) + 1) % CYCLE.length];
+    if (next) G.g[key] = next; else delete G.g[key];
+    saveGuess(); paintGuess(); sfx.tap(); buzz(6);
+    hangEl(key).classList.remove('coach');
+    guessHint();
+    return;
+  }
+  if (phase === 'paste') { toast('나만의 물약은 다 만들었어. 이제 AI 답변을 넣어 줘.'); return; }
+  const it = data.items[key];
+  if (!it) { toast('AI 답변에 이 재료가 없어요.'); return; }
+  if (st.poured.has(key)) { showIng(key, false); return; }
+  if (phase !== 'brew' || st.busy) return;
+  pour(key);
+}
+
+function paintGuess() {
+  paintHangs();
+  guessBrew = mixBrew(ANXIETY.filter((d) => G.g[d.key]).map((d) => ({ color: d.color, pct: GUESS_PCT[G.g[d.key]] })));
+  $('#vialGuess').style.setProperty('--v', guessBrew ? hsl(guessBrew.h, guessBrew.s, guessBrew.l) : 'transparent');
+  if (['title', 'guess', 'paste'].includes(phase)) {
+    setBrewVars(document.documentElement, guessBrew);
+    setLevel(guessN() / 12);
+    $('#brewText').textContent = guessBrew ? `나만의 · ${colorName(guessBrew)}` : '맹물';
+  }
+}
+
+/* ───────── 단계 ───────── */
+function lecternCall(on) { $('#bookBtn').classList.toggle('call', on); }
+
+function setPhase(p) {
+  phase = p;
+  stage.dataset.phase = p;
+  lecternCall(p === 'done');
+  $('#flaskBtn').hidden = p !== 'seal';
+  if (!['title', 'guess', 'paste'].includes(p)) { $('#sayForm').hidden = true; $('#sayForm').innerHTML = ''; }
+  switch (p) {
+    case 'brew':
+      say(Object.keys(st.guesses).length ? '진짜 레시피 도착! <b>병을 톡</b> 눌러 솥에 부어 봐.' : '<b>병을 톡</b> 눌러 솥에 부어 봐.');
+      act(null);
+      hangEl(ANXIETY.find((d) => !st.poured.has(d.key))?.key ?? ANXIETY[0].key).classList.add('coach');
+      break;
+    case 'stir':
+      say('이제 <b>솥 안을 빙글빙글</b> 저어 봐!');
+      act(null);
+      break;
+    case 'seal':
+      say('마지막 병이 떠올랐어. <b>봉랍을 톡톡톡</b>!');
+      act(null);
+      break;
+    case 'done':
+      say(`완성이다냥!${st.guessed ? ` 나만의 물약은 진짜와 <b>${st.hits}/${st.guessed}</b>병 같았어.` : ''}`);
+      act('레시피 보기', () => openBook('recipe'));
+      break;
+  }
+}
+
+/* ───────── 주문서(책): 레시피 · 메뉴 ───────── */
+const book = $('#book');
+function openBook(page) {
+  showPage(page);
+  if (!book.open) book.showModal();
+  sfx.cork();
+}
+function showPage(page) {
+  $$('.page', book).forEach((p) => p.classList.toggle('on', p.dataset.page === page));
+  $$('.ribbons button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === page ? 'page' : 'false'));
+  book.querySelector('.book-inner').scrollTop = 0;
+}
+$$('.ribbons button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); sfx.tap(); }));
+$('[data-book-close]').addEventListener('click', () => book.close());
+book.addEventListener('click', (e) => { if (e.target === book) book.close(); });
+$('#bookBtn').addEventListener('click', () => openBook(lastModel ? 'recipe' : 'menu'));
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    (book.open ? book : document.body).appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove(); return ok;
+  }
+}
+$('#copyPrompt').addEventListener('click', async () => {
+  toast((await copyText(OOC_PROMPT)) ? '주문(OOC)을 복사했어요.' : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
+});
+function runSample() {
+  if (!npc) npc = '';
+  startBrew(SAMPLE, true);
+}
+$('#loadSample').addEventListener('click', () => { book.close(); runSample(); });
+
+function startBrew(text, isSample) {
+  const parsed = parseAnalysis(text);
+  const anxFound = ANXIETY.filter((d) => parsed.items[d.key]).length;
+  if (parsed.found < 6 || anxFound < 4) { toast('재료를 충분히 찾지 못했어요. 답변 전체를 붙여 넣어 주세요.'); return; }
+  data = parsed;
+  const useNpc = isSample ? (parsed.npc || 'NPC') : (npc || parsed.npc || 'NPC');
+  const usePc = isSample ? (parsed.pc || '') : (pc || parsed.pc || '');
+  npc = useNpc; pc = usePc;
+  // 붙여넣는 순간 나만의 물약을 고정한다
+  const guesses = {};
+  for (const [k, v] of Object.entries(G.g)) if (data.items[k]?.pct != null) guesses[k] = v;
+  st = { poured: new Set(), guesses, attachGuess: G.attach, guessBrew, hits: 0, guessed: 0, dev: new Set(), knocks: 0, acc: 0, busy: false };
+  ANXIETY.forEach((d) => { if (!data.items[d.key]) st.poured.add(d.key); });
+  HIDDEN.forEach((d) => { if (!data.items[d.key]) st.dev.add(d.key); });
+  $('#kNpc').textContent = npc;
+  paintWho();
+  if (book.open) book.close();
+  $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty', 'coach'); $('.mark', h)?.remove(); });
+  brew = null; setBrewVars(document.documentElement, null); setLevel(0);
+  $('#brewText').textContent = '맹물';
+  $('#vialReal').style.setProperty('--v', 'transparent');
+  $('#recipe').innerHTML = '<p class="pg-note">아직 완성된 물약이 없어요.</p>';
+  buildTracks();
+  store.set('aa.step', 'paste');
+  setPhase('brew');
+  paintHangs();
+  sfx.plop();
 }
 
 /* ───────── 매달린 병 ───────── */
@@ -131,11 +379,11 @@ function paintHangs() {
   ANXIETY.forEach((d) => {
     const el = hangEl(d.key);
     const sm = $('.label small', el);
-    if (phase === 'guess' || phase === 'title' || phase === 'paste') {
+    if (!st) {
       const g = G.g[d.key];
       el.classList.toggle('set', !!g);
       el.style.setProperty('--h', g ? GUESS_H[g] + '%' : '0%');
-      sm.textContent = g ? TIER_LABEL[g] : (phase === 'guess' ? '?' : '');
+      sm.textContent = g ? TIER_LABEL[g] : '';
       el.setAttribute('aria-label', `${d.ing}, ${d.name}. 나만의 물약 농도 ${g ? TIER_LABEL[g] : '안 정함'}. 눌러서 바꾸기`);
     } else {
       const it = data.items[d.key];
@@ -146,189 +394,6 @@ function paintHangs() {
       el.setAttribute('aria-label', `${d.ing}, ${d.name}${st.poured.has(d.key) ? `, ${it.pct}% 솥에 넣음` : it ? ', 눌러서 솥에 붓기' : ', 기록 없음'}`);
     }
   });
-}
-
-function onHang(key) {
-  if (phase === 'title') { toast('먼저 주문서를 펴서 의뢰 대상을 적어 주세요.'); lecternCall(true); return; }
-  if (phase === 'guess') {
-    const next = CYCLE[(CYCLE.indexOf(G.g[key] ?? null) + 1) % CYCLE.length];
-    if (next) G.g[key] = next; else delete G.g[key];
-    saveGuess(); paintGuess(); sfx.tap(); buzz(6);
-    return;
-  }
-  if (phase === 'paste') { toast('나만의 물약은 완성됐어요. 주문서를 펴서 진짜 레시피(AI 답변)를 넣어 주세요.'); lecternCall(true); return; }
-  // 실험 중
-  const it = data.items[key];
-  if (!it) { toast('AI 답변에 이 재료가 없어요.'); return; }
-  if (st.poured.has(key)) { showIng(key, false); return; }
-  if (phase !== 'brew' || st.busy) return;
-  pour(key);
-}
-
-/* ───────── 짐작 ───────── */
-function paintGuess() {
-  paintHangs();
-  guessBrew = mixBrew(ANXIETY.filter((d) => G.g[d.key]).map((d) => ({ color: d.color, pct: GUESS_PCT[G.g[d.key]] })));
-  $('#vialGuess').style.setProperty('--v', guessBrew ? hsl(guessBrew.h, guessBrew.s, guessBrew.l) : 'transparent');
-  if (phase === 'guess' || phase === 'title' || phase === 'paste') {
-    setBrewVars(document.documentElement, guessBrew);
-    setLevel(guessN() / 12);
-    $('#brewText').textContent = guessBrew ? `나만의 · ${colorName(guessBrew)}` : '맹물';
-  }
-  const n = guessN();
-  $('#guessStatus').innerHTML = n || G.attach
-    ? `나만의 물약: 재료 <b>${n}/12</b>병${G.attach ? ` · 애착 유형 <b>${esc(G.attach)}</b>` : ''}. 진짜 물약을 끓일 때 하나씩 비교해 드려요.`
-    : '나만의 물약 없이 진행해요. 비교 없이 진짜 물약만 끓여요.';
-  if (phase === 'guess') act(n ? `나만의 물약 완성 (${n}/12)` : '나만의 물약 완성', sealGuess);
-}
-
-function askAttach() {
-  say(`나만의 물약 완성이다냥! 하나만 더, <b>${esc(npc || 'NPC')}</b>의 애착 유형은 뭘 것 같아?
-    <span class="chips">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${t}</button>`).join('')}<button type="button" data-at="">모르겠어</button></span>`);
-  $$('#catSay [data-at]').forEach((b) => b.addEventListener('click', () => {
-    G.attach = b.dataset.at || null; saveGuess(); sfx.tap();
-    setPhase('paste');
-    openBook('ooc');
-  }));
-}
-
-function sealGuess() {
-  sfx.knock(); buzz(12);
-  store.set('aa.phase', 'paste');
-  act(null);
-  askAttach();
-}
-
-/* ───────── 단계 ───────── */
-function lecternCall(on) { $('#bookBtn').classList.toggle('call', on); }
-
-function setPhase(p) {
-  phase = p;
-  stage.dataset.phase = p;
-  if (['title', 'guess', 'paste'].includes(p)) store.set('aa.phase', p);
-  lecternCall(p === 'title' || p === 'paste' || p === 'done');
-  $('#flaskBtn').hidden = p !== 'seal';
-  paintRibbons();
-  switch (p) {
-    case 'title':
-      say('어서 와, 의뢰인. 오늘은 누구의 속마음을 끓여 볼까냥? <b>주문서</b>를 펴 봐.');
-      act('주문서 펴기', () => openBook('name'));
-      break;
-    case 'guess':
-      say(`나만의 물약부터 만들어 보자냥. 병 12개는 <b>${esc(npc)}</b>의 불안 12가지야. 네 감으로 병을 눌러 농도를 정해 봐. 누를 때마다 <b>옅음 → 보통 → 진함 → 빼기</b>.`);
-      paintGuess();
-      break;
-    case 'paste':
-      say('주문서를 펴서 <b>주문(OOC)</b>을 채팅에 외우고, 받아 온 답변을 <b>재료</b> 장에 넣어 줘.');
-      act('주문서 펴기', () => openBook(rxText.value.trim() ? 'paste' : 'ooc'));
-      paintGuess();
-      break;
-    case 'brew':
-      say(st.guessed || Object.keys(st.guesses).length ? '진짜 레시피가 들어왔다냥. 병을 솥에 부을 때마다 나만의 물약이랑 비교해 줄게.' : '재료가 준비됐다냥. 병을 하나씩 눌러 솥에 부어 봐.');
-      act(null);
-      break;
-    case 'stir':
-      say('재료가 다 들어갔어! 이제 <b>솥 안을 빙글빙글</b> 저어 봐. 초록 고리가 차면 연기 속에서 뭔가 떠오를 거야.');
-      act(null);
-      break;
-    case 'seal':
-      say('솥에서 마지막 병이 떠올랐다냥… 본인도 인정하기 싫은 게 들었어. <b>봉랍을 세 번</b> 두드려 봐.');
-      act(null);
-      break;
-    case 'done':
-      say(`완성이다냥! 레시피는 주문서 마지막 장에 적어 뒀어. ${st.guessed ? `나만의 물약은 진짜와 <b>${st.hits}/${st.guessed}</b>병 같았어.` : ''}`);
-      act('레시피 보기', () => openBook('recipe'));
-      break;
-  }
-}
-
-/* ───────── 주문서(책) ───────── */
-const book = $('#book');
-function paintRibbons() {
-  const brewing = !['title', 'guess', 'paste'].includes(phase);
-  $$('.ribbons button').forEach((b) => {
-    const pg = b.dataset.page;
-    b.disabled = brewing && pg !== 'recipe';
-  });
-}
-function openBook(page) {
-  showPage(page);
-  if (!book.open) book.showModal();
-  sfx.cork();
-}
-function showPage(page) {
-  $$('.page', book).forEach((p) => p.classList.toggle('on', p.dataset.page === page));
-  $$('.ribbons button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === page ? 'page' : 'false'));
-  book.querySelector('.book-inner').scrollTop = 0;
-}
-$$('.ribbons button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); sfx.tap(); }));
-$$('[data-goto]').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.goto)));
-$('[data-book-close]').addEventListener('click', () => book.close());
-book.addEventListener('click', (e) => { if (e.target === book) book.close(); });
-$('#bookBtn').addEventListener('click', () => {
-  if (phase === 'title') openBook('name');
-  else if (phase === 'guess') openBook('name');
-  else if (phase === 'paste') openBook(rxText.value.trim() ? 'paste' : 'ooc');
-  else openBook('recipe');
-});
-
-$('#goGuess').addEventListener('click', () => {
-  npc = npcIn.value.trim() || 'NPC'; paintWho();
-  book.close(); setPhase('guess');
-});
-$('#skipGuess').addEventListener('click', () => {
-  npc = npcIn.value.trim() || 'NPC'; paintWho();
-  G = { g: {}, attach: null }; saveGuess();
-  setPhase('paste'); showPage('ooc');
-});
-
-async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-    book.appendChild(ta); ta.select();
-    let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
-    ta.remove(); return ok;
-  }
-}
-$('#copyPrompt').addEventListener('click', async () => {
-  const ok = await copyText(OOC_PROMPT);
-  if (phase === 'title' || phase === 'guess') setPhase('paste');
-  toast(ok ? '주문서를 복사했어요. 롤플 채팅에 보내 주세요.' : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
-});
-$('#loadSample').addEventListener('click', () => { rxText.value = SAMPLE; startBrew(true); });
-$('#brewBtn').addEventListener('click', () => startBrew(false));
-
-function startBrew(isSample) {
-  const msg = $('#formMsg');
-  if (!rxText.value.trim()) { msg.textContent = 'AI 답변을 붙여 넣어 주세요.'; rxText.focus(); return; }
-  const parsed = parseAnalysis(rxText.value);
-  const anxFound = ANXIETY.filter((d) => parsed.items[d.key]).length;
-  if (parsed.found < 6 || anxFound < 4) { msg.textContent = `재료를 충분히 찾지 못했어요 (찾은 항목 ${parsed.found}개). 답변 전체를 붙여 넣었는지 확인해 주세요.`; return; }
-  msg.textContent = '';
-  data = parsed;
-  npc = npcIn.value.trim() || parsed.npc || 'NPC';
-  pc = pcIn.value.trim() || parsed.pc || '';
-  if (!isSample) store.set('aa.text', rxText.value);
-  // 붙여넣는 순간 짐작을 고정한다
-  const guesses = {};
-  for (const [k, v] of Object.entries(G.g)) if (data.items[k]?.pct != null) guesses[k] = v;
-  st = { poured: new Set(), guesses, attachGuess: G.attach, guessBrew, hits: 0, guessed: 0, dev: new Set(), knocks: 0, acc: 0, busy: false };
-  ANXIETY.forEach((d) => { if (!data.items[d.key]) st.poured.add(d.key); });
-  HIDDEN.forEach((d) => { if (!data.items[d.key]) st.dev.add(d.key); });
-  $('#kNpc').textContent = npc;
-  paintWho();
-  book.close();
-  // 솥을 비우고 시작
-  $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty'); $('.mark', h)?.remove(); });
-  brew = null; setBrewVars(document.documentElement, null); setLevel(0);
-  $('#brewText').textContent = '맹물';
-  $('#vialReal').style.setProperty('--v', 'transparent');
-  $('#recipe').innerHTML = '<p class="pg-note">아직 완성된 물약이 없어요.</p>';
-  buildTracks();
-  setPhase('brew');
-  paintHangs();
-  sfx.plop();
 }
 
 /* ───────── HUD ───────── */
@@ -644,13 +709,13 @@ $('#restart').addEventListener('click', () => {
   book.close();
   data = null; st = null; lastModel = null;
   G = { g: {}, attach: null }; saveGuess();
-  rxText.value = ''; store.set('aa.text', '');
-  $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty'); $('.mark', h)?.remove(); });
+  draftText = ''; store.set('aa.text', ''); store.set('aa.copied', '');
+  $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty', 'coach'); $('.mark', h)?.remove(); });
   $('#trackDrops').innerHTML = ''; $('#trackStars').innerHTML = ''; $('#trackSeal i').classList.remove('on');
   flaskBtn.classList.remove('open', 'knock'); flaskBtn.dataset.hits = '0';
   $('#vialReal').style.setProperty('--v', 'transparent');
-  setPhase('title');
   paintGuess(); paintWho();
+  goStep(npc ? 'pc' : 'name');
 });
 
 /* 바텀시트 끌어 닫기 */
@@ -664,8 +729,10 @@ $('#restart').addEventListener('click', () => {
 
 /* ───────── 시작 ───────── */
 buildHangs();
-const saved = store.get('aa.phase');
-npc = npcIn.value.trim() || 'NPC';
 paintWho();
-setPhase(saved === 'guess' || saved === 'paste' ? saved : 'title');
 paintGuess();
+{
+  const saved = store.get('aa.step');
+  const ok = ['name', 'pc', 'guess', 'attach', 'ooc', 'paste'];
+  goStep(ok.includes(saved) && (saved === 'name' || npc) ? saved : 'name');
+}
