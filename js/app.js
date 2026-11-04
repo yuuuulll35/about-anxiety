@@ -41,6 +41,7 @@ const cat = $('#cat');
 function say(html) {
   $('#catSay').innerHTML = html;
   const box = $('#sayBox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+  requestAnimationFrame(avoidCat);
   cat.classList.remove('talk'); void cat.offsetWidth; cat.classList.add('talk');
 }
 
@@ -112,6 +113,7 @@ function ask(text, formHtml = '', bind = null) {
 function goStep(s) {
   step = s;
   store.set('aa.step', s);
+  store.set('aa.stepAt', String(Date.now()));
   stage.dataset.step = s;
   $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
   stage.dataset.focus = '';
@@ -803,15 +805,41 @@ $('#restart').addEventListener('click', () => {
   }, { passive: true });
 }
 
+/* 말풍선이 고양이를 덮으면 고양이가 벽 아래로 쏙 숨는다 */
+function avoidCat() {
+  const c = $('#cat'), b = $('#sayBox');
+  c.style.removeProperty('--duck');
+  c.classList.remove('duck');
+  if (b.offsetParent === null) return;
+  const cr = c.getBoundingClientRect(), br = b.getBoundingClientRect();
+  const hat = $('.cat-hatg').getBoundingClientRect();
+  if (br.right <= cr.left + cr.width * .15 || br.bottom <= hat.top) return;
+  // 모자 끝이 말풍선 아래로 내려갈 만큼 내린다 (최대: 귀 끝만 보이게)
+  const need = Math.min(br.bottom - hat.top + 10, cr.height * .86);
+  c.style.setProperty('--duck', need + 'px');
+  c.classList.add('duck');
+}
+window.addEventListener('resize', () => requestAnimationFrame(avoidCat));
+new ResizeObserver(() => avoidCat()).observe($('#sayBox'));
+
 /* ───────── 시작 ───────── */
 buildHangs();
+function freshStart() {
+  npc = ''; pc = ''; G = { g: {}, attach: null }; draftText = '';
+  ['aa.npc', 'aa.pc', 'aa.text', 'aa.step'].forEach((k) => store.set(k, ''));
+  saveGuess(); paintWho(); paintGuess(); goStep('intro');
+}
 {
   const saved = store.get('aa.step');
-  if ((saved === 'ooc' || saved === 'paste') && npc) {
-    paintWho(); paintGuess(); goStep(saved);
-  } else {
-    npc = ''; pc = ''; G = { g: {}, attach: null }; draftText = '';
-    store.set('aa.npc', ''); store.set('aa.pc', ''); store.set('aa.text', ''); saveGuess();
-    paintWho(); paintGuess(); goStep('intro');
-  }
+  const at = +(store.get('aa.stepAt') || 0);
+  const recent = Date.now() - at < 30 * 60 * 1000;
+  if ((saved === 'ooc' || saved === 'paste') && npc && recent) {
+    paintWho(); paintGuess(); setPhase('paste');
+    ask(`다시 왔구나! <b>${esc(npc)}</b>의 물약을 만들던 중이었어. 주문은 채팅에 보냈어?`,
+      `<div class="say-row"><button class="mini primary" id="fResume" type="button">응, 답변 받아 왔어</button><button class="mini" id="fRestart" type="button">처음부터</button></div>`,
+      (f) => {
+        $('#fResume', f).addEventListener('click', () => { sfx.tap(); goStep('paste'); });
+        $('#fRestart', f).addEventListener('click', () => { sfx.tap(); freshStart(); });
+      });
+  } else freshStart();
 }
