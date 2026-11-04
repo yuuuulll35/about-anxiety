@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseAnalysis } from '../js/parse.js';
 import { encode, decode, ROWS, CHARSET, levelToPct } from '../js/codebook.js';
 import { SAMPLE } from '../js/sample.js';
-import { OOC_PARTS, INPUT_LIMIT } from '../js/prompt.js';
+import { OOC_PARTS, OOC_STEPS, INPUT_LIMIT } from '../js/prompt.js';
 
 test('표는 자리마다 10개 서로 다른 허용 문자', () => {
   assert.equal(ROWS.length, 18);
@@ -21,16 +21,29 @@ test('인코딩 ↔ 디코딩', () => {
   assert.deepEqual(d.fuzzy, []);
 });
 
-test('예시 답변: 해설 + 코드블록을 통째로 붙여넣어도 읽는다', () => {
+test('나눠 받은 답 세 개를 이어 붙인 예시를 모두 읽는다', () => {
   const r = parseAnalysis(SAMPLE);
-  assert.equal(r.code, true);
+  assert.equal(r.letters, true);
   assert.equal(r.found, 18);
-  assert.equal(r.lines, 18);
   assert.equal(r.items.health.pct, 85);
   assert.match(r.items.health.status, /응급실/);
   assert.deepEqual(r.items.attach.types, ['혼란형']);
   assert.match(r.deepest.title, /붙잡을 수는/);
-  assert.match(r.deepest.body, /확신/);
+  assert.match(r.deepest.body, /쓸모/);
+});
+
+test('답 하나만 붙여넣어도 그 항목만 읽는다', async () => {
+  const { SAMPLE_PARTS } = await import('../js/sample.js');
+  const r = parseAnalysis(SAMPLE_PARTS[1]);
+  assert.equal(r.found, 6);
+  assert.deepEqual(r.codes, ['A07', 'A08', 'A09', 'A10', 'A11', 'A12']);
+});
+
+test('표에 없는 문자는 그 항목만 4로', () => {
+  const r = parseAnalysis('A01 Z | 상태 | 설명\nA02 W | 상태 | 설명');
+  assert.equal(r.items.health.uncertain, true);
+  assert.equal(r.items.health.pct, levelToPct(4));
+  assert.equal(r.items.affair.pct, levelToPct(8));
 });
 
 test('구분자 없이, 소문자, 공백 섞여도 읽는다', () => {
@@ -59,14 +72,15 @@ test('줄에 수치를 붙여 와도 상태값만 남긴다', () => {
   assert.equal(r.items.health.pct, levelToPct(5));
 });
 
-test('주문 조각은 모두 채팅 입력 제한 안이고, 항목 정의와 변환표가 빠짐없이 들어 있다', () => {
+test('주문 조각은 모두 입력 제한 안이고, 항목 정의·변환표·받을 항목이 맞다', () => {
   for (const p of OOC_PARTS) assert.ok([...p].length <= INPUT_LIMIT, `${[...p].length}자`);
-  const all = OOC_PARTS.join('\n');
-  assert.equal((all.match(/^[AH]\d\d .+: .+/gm) || []).length, 18);
-  assert.match(all, /근거 없는 수치나 억지스러운 심리 해석은 금지/);
-  assert.match(all, /0=Q 1=7/);
-  assert.match(all, /혼란형=J/);
-  assert.match(OOC_PARTS[0], /주문 1\/2 확인/);
+  assert.equal((OOC_PARTS[0].match(/^[AH]\d\d .+: .+/gm) || []).length, 18);
+  assert.match(OOC_PARTS[0], /근거 없는 수치나 억지스러운 심리 해석은 금지/);
+  assert.match(OOC_PARTS[0], /준비됨/);
+  for (const p of OOC_PARTS.slice(1)) assert.match(p, /0=Q 1=7/);
+  assert.match(OOC_PARTS[3], /혼란형=J/);
+  const all = OOC_STEPS.flatMap((s) => s.expect);
+  assert.equal(all.length, 19);
 });
 
 test('상태값 | 설명 을 둘 다 읽는다', () => {

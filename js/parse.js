@@ -6,7 +6,7 @@
 // 굵게(**), 번호(1.), 글머리(- * • ·), 제목(#), 콜론 위치가 달라도 읽는다.
 
 import { ANXIETY, HIDDEN, ATTACH_TYPES } from './items.js';
-import { decode, SLOTS, levelToPct } from './codebook.js';
+import { decode, SLOTS, levelToPct, ROW, TYPE_CODE } from './codebook.js';
 
 const compact = (s) => s.replace(/[\s*_`~:：\[\]【】()（）'"“”‘’]/g, '');
 
@@ -124,10 +124,56 @@ function parseMul(text) {
   return { npc, pc, items, deepest, found: 18, lines: Object.keys(lines).length, fuzzy: d.fuzzy.length, code: true };
 }
 
+/* 나눠 받은 답: 한 줄에 "A01 Q | 상태값 | 설명", "H03 Q J | …", "DEEP 속마음 | 해설" */
+const TYPE_OF_CH = Object.fromEntries(Object.entries(TYPE_CODE).map(([k, v]) => [v, k]));
+const LETTER_RE = /^\s*[*\-•>]*\s*\**\s*(A|H)\s*0?(\d{1,2})\s*\**\s*[.:：=)\-–]?\s*([A-Za-z0-9])(?:\s+([A-Za-z]))?\s*(?:\||$)(.*)$/;
+export function parseLetters(text) {
+  const items = {};
+  let deepest = null;
+  const byCode = Object.fromEntries(SLOTS.map((s) => [s.code, s.def]));
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\*\*/g, '').trim();
+    if (!line) continue;
+    const dp = line.match(/^DEEP\s*[.:：=]?\s*(.+)$/i);
+    if (dp) {
+      const [t, ...rest] = dp[1].split('|').map((x) => x.trim());
+      deepest = { title: t.replace(/^["“'‘]|["”'’]$/g, ''), body: rest.join(' ') };
+      continue;
+    }
+    const m = line.match(LETTER_RE);
+    if (!m) continue;
+    const code = `${m[1].toUpperCase()}${m[2].padStart(2, '0')}`;
+    const def = byCode[code];
+    if (!def) continue;
+    const ch = m[3].toUpperCase();
+    const lv = ROW.indexOf(ch);
+    const [status = '', ...desc] = m[5].split('|').map((x) => x.trim());
+    const it = {
+      key: def.key, group: code[0] === 'A' ? 'anxiety' : 'hidden', name: def.name,
+      pct: levelToPct(lv < 0 ? 4 : lv), level: lv < 0 ? 4 : lv, uncertain: lv < 0,
+      tag: null, status: status.replace(/^\|\s*/, ''), desc: desc.join(' '),
+    };
+    if (def.key === 'attach') {
+      const type = m[4] ? TYPE_OF_CH[m[4].toUpperCase()] : null;
+      const hay = [status, it.desc].join(' ');
+      it.types = type ? [type] : ATTACH_TYPES.filter((t) => hay.includes(t)).slice(0, 1);
+      it.tag = it.types[0] || null;
+    }
+    items[def.key] = it;
+  }
+  const codes = SLOTS.filter((s) => items[s.def.key]).map((s) => s.code);
+  return { npc: null, pc: null, items, deepest, found: codes.length, codes, letters: true, fuzzy: Object.values(items).filter((i) => i.uncertain).length };
+}
+
 export function parseAnalysis(raw) {
   const text = String(raw || '').replace(/\r\n?/g, '\n').replace(/```[a-z]*\n?/gi, '');
   const mul = parseMul(text);
   if (mul) return mul;
+  // 예전 [POTION] 형식(A01=81|…)이 먼저: 숫자 수치가 6개 이상이면 그쪽으로 읽는다
+  const compactFirst = parseCompact(text);
+  if (Object.values(compactFirst.items).filter((i) => i.pct != null).length >= 6) return compactFirst;
+  const let_ = parseLetters(text);
+  if (let_.found >= 1) return let_;
   const compact = parseCompact(text);
   if (compact.found >= 6) return compact;
   return parseLong(raw);

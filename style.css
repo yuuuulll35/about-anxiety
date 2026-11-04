@@ -948,3 +948,32 @@ body { background: #0f0b1d; }
 .parts i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; font-style: normal; font-size: 12px; font-weight: 700; border: 1px solid rgba(43, 32, 51, .3); color: #8a7a6a; }
 .parts i.now { background: #9d2f55; color: #fff; border-color: transparent; }
 .parts i.done { background: #c8fa86; color: #13200a; border-color: transparent; }
+
+/* 레시피 받기: 주문 조각 목록 */
+.order { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.order li { display: grid; grid-template-columns: 26px 1fr auto auto; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; border: 1px solid rgba(43, 32, 51, .15); background: rgba(255, 255, 255, .5); }
+.order li.now { border-color: #9d2f55; background: #fff; box-shadow: 0 0 0 3px rgba(157, 47, 85, .12); }
+.order li.done { opacity: .75; }
+.o-no { font-size: 18px; color: #9d2f55; text-align: center; }
+.order li.done .o-no { color: #2c8a3c; }
+.order li.done .o-no::after { content: ''; }
+.o-t { display: grid; font-weight: 700; font-size: 14px; line-height: 1.25; }
+.o-t small { font-weight: 500; font-size: 11.5px; color: #7a6a5a; }
+.order li.done .o-t small { color: #2c8a3c; }
+.order .mini { min-height: 38px; padding: 4px 10px; font-size: 13px; }
+.o-pad { width: 0; }
+
+.order li { padding: 4px 8px; }
+.order li.done { padding: 2px 8px; background: transparent; }
+.order li.done .o-t { font-size: 13px; }
+.order .mini.quiet { min-height: 30px; padding: 2px 8px; font-size: 12px; background: transparent; box-shadow: none; }
+.order .o-t small { display: inline; margin-left: 6px; }
+.o-t { display: block; }
+/* 대화창이 화면보다 길어지면 안쪽 입력 부분만 스크롤 */
+.say-form { max-height: min(56dvh, calc(100dvh - 330px)); overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+@media (min-width: 900px), (min-aspect-ratio: 5 / 4) and (min-width: 700px) {
+  .say-form { max-height: calc(100dvh - 380px); }
+}
+@media (max-width: 899px) {
+  .say-form { max-height: max(190px, calc(100dvh - 560px)); }
+}

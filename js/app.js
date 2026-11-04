@@ -1,7 +1,7 @@
 import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js';
 import { parseAnalysis } from './parse.js';
 import { SAMPLE } from './sample.js';
-import { OOC_PARTS } from './prompt.js';
+import { OOC_PARTS, OOC_STEPS } from './prompt.js';
 import { FILM_ICONS } from './icons.js';
 import { cauldronSVG } from './cauldron.js';
 import { mixBrew, colorName, hsl, moonPhase, josa } from './brew.js';
@@ -169,85 +169,92 @@ function goStep(s) {
         })));
       break;
     case 'ooc':
-      setPhase('paste');
-      oocPart(0);
-      break;
     case 'paste':
       setPhase('paste');
-      ask('AI 답변을 받아 왔어?',
-        `<div class="say-row"><button class="mini primary" id="fClip" type="button">📥 붙여넣기</button><button class="mini" id="fRecopy" type="button">주문 다시 복사</button></div>
-         <textarea id="fText" rows="2" placeholder="또는 여기에 붙여넣기 · MUL- 로 시작하는 블록" spellcheck="false">${esc(draftText)}</textarea>
-         <p class="check" id="fCheck" aria-live="polite"></p>
-         <button class="mini go wide" id="fBrew" type="button" disabled>솥에 불 지피기</button>`,
-        (f) => {
-          const ta = $('#fText', f);
-          const update = () => { draftText = ta.value; store.set('aa.text', draftText); checkPaste(f); };
-          ta.addEventListener('input', update);
-          $('#fClip', f).addEventListener('click', async () => {
-            try {
-              const t = await navigator.clipboard.readText();
-              if (!t.trim()) throw new Error('empty');
-              ta.value = t; update(); sfx.plop();
-            } catch { toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); ta.focus(); }
-          });
-          $('#fRecopy', f).addEventListener('click', () => { sfx.tap(); goStep('ooc'); });
-          $('#fBrew', f).addEventListener('click', () => startBrew(draftText, false));
-          checkPaste(f);
-        });
+      orderPanel();
       break;
   }
 }
 
-/* 주문(OOC)을 채팅 입력 제한에 맞춰 나눈 조각을 차례로 복사한다 */
-function oocPart(k) {
-  const n = OOC_PARTS.length;
-  const first = k === 0;
-  const text = first
-    ? (guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자.' : '<b>진짜 레시피</b>를 받아 오자.')
-      + (n > 1 ? ` 주문이 길어서 <b>${n}번에 나눠</b> 보내야 해.` : '')
-    : `좋아. AI가 "주문 ${k}/${n} 확인"이라고 답했으면 <b>${k + 1}번째</b>를 보내 줘.`;
-  ask(text,
-    `<div class="parts">${OOC_PARTS.map((_, j) => `<i class="${j < k ? 'done' : j === k ? 'now' : ''}">${j + 1}</i>`).join('')}</div>
-     <button class="mini primary wide" id="fCopy" type="button">📋 주문 ${k + 1}/${n} 복사</button>
-     <p class="say-hint">${k === n - 1 ? '이걸 보내면 AI가 물약 레시피를 줄 거야.' : '복사해서 롤플 채팅에 보내고 돌아와.'}</p>
-     ${k > 0 ? '<button class="link-btn" type="button" id="fBack">앞 조각 다시 복사</button>' : ''}`,
-    (f) => {
-      $('#fCopy', f).addEventListener('click', async () => {
-        if (!(await copyText(OOC_PARTS[k]))) { toast('복사하지 못했어요. 주문서 메뉴에서 다시 시도해 주세요.'); return; }
-        store.set('aa.copied', String(k + 1)); sfx.cork(); buzz(10);
-        toast(`주문 ${k + 1}/${n}을 복사했어요.`);
-        if (k + 1 < n) oocPart(k + 1); else goStep('paste');
-      });
-      $('#fBack', f)?.addEventListener('click', async () => { if (await copyText(OOC_PARTS[k - 1])) toast(`주문 ${k}/${n}을 다시 복사했어요.`); });
-    });
+/* 레시피 받기: 주문 조각을 하나씩 보내고, 받은 답을 이어 붙인다 (relation-anatomy · daily-life-simulator 방식) */
+let showManual = false;
+let showList = false;
+function partState(i, r) {
+  const st = OOC_STEPS[i];
+  if (!st.expect.length) return { done: +(store.get('aa.copied') || 0) >= 1, got: 0, need: 0 };
+  const got = st.expect.filter((c) => (c === 'DEEP' ? !!r.deepest : r.codes?.includes(c) || !!r.items[SLOT_KEY[c]])).length;
+  return { done: got === st.expect.length, got, need: st.expect.length };
+}
+const SLOT_KEY = Object.fromEntries([...ANXIETY.map((d, i) => [`A${pad2(i + 1)}`, d.key]), ...HIDDEN.map((d, i) => [`H${pad2(i + 1)}`, d.key])]);
+
+function orderPanel() {
+  const r = parseAnalysis(draftText);
+  const states = OOC_STEPS.map((_, i) => partState(i, r));
+  const cur = states.findIndex((x) => !x.done);
+  const total = r.error ? 0 : r.found;
+  const head = cur === -1
+    ? '레시피가 다 모였다냥! <b>솥에 불</b>을 지펴.'
+    : cur === 0
+      ? (guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자. ' : '') + `주문을 <b>${OOC_STEPS.length}번</b> 나눠 보내. 먼저 ①을 복사해서 채팅에 보내 줘.`
+      : `AI가 답하면 그 답을 복사해서 <b>${'①②③④'[cur]} 답 넣기</b>를 눌러. 그다음 줄로 넘어가면 돼.`;
+  const allDone = cur === -1 && !showList;
+  ask(head, `
+    ${allDone ? '<button class="link-btn" type="button" id="fList">주문 목록 다시 보기</button>' : ''}
+    <ol class="order"${allDone ? ' hidden' : ''}>${OOC_STEPS.map((stp, i) => {
+      const x = states[i];
+      const cls = x.done ? 'done' : i === cur ? 'now' : '';
+      const meta = !stp.expect.length
+        ? (x.done ? 'AI가 "준비됨"이라고 하면 OK' : '답은 넣지 않아도 돼')
+        : x.got ? `${x.got}/${x.need}` : '';
+      return `<li class="${cls}">
+        <span class="o-no">${'①②③④'[i]}</span>
+        <span class="o-t">${esc(stp.title)}<small>${meta}</small></span>
+        <button class="mini${x.done ? ' quiet' : ''}" type="button" data-copy="${i}">복사</button>
+        ${stp.expect.length ? `<button class="mini${x.done ? ' quiet' : ' primary'}" type="button" data-paste="${i}">${x.done ? '다시' : '📥 답 넣기'}</button>` : '<span class="o-pad"></span>'}
+      </li>`;
+    }).join('')}</ol>
+    <p class="check" id="fCheck">${total ? `모인 레시피 <span class="${total === 18 ? 'ok' : 'part'}">${total}/18</span> · 마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>${r.fuzzy ? ` · <span class="part">흐린 글자 ${r.fuzzy}칸은 보통으로 읽어</span>` : ''}` : ''}</p>
+    <button class="link-btn" type="button" id="fManual">${showManual ? '직접 붙여넣기 닫기' : '직접 붙여넣기 · 모인 답 보기'}</button>
+    ${showManual ? `<textarea id="fText" rows="3" placeholder="받은 답을 여기에 이어 붙여도 돼" spellcheck="false">${esc(draftText)}</textarea>` : ''}
+    <div class="say-row"><button class="mini go wide" id="fBrew" type="button" ${total >= 6 ? '' : 'disabled'}>솥에 불 지피기${total && total < 18 ? ` (${total}/18)` : ''}</button></div>
+    ${draftText.trim() ? '<button class="link-btn" type="button" id="fClear">모인 답 비우기</button>' : ''}`,
+  (f) => {
+    $$('[data-copy]', f).forEach((b) => b.addEventListener('click', async () => {
+      const i = +b.dataset.copy;
+      if (!(await copyText(OOC_STEPS[i].text))) { toast('복사하지 못했어요. 브라우저 권한을 확인해 주세요.'); return; }
+      if (i === 0) store.set('aa.copied', '1');
+      sfx.cork(); buzz(10);
+      toast(`주문 ${i + 1}/${OOC_STEPS.length}을 복사했어요. 채팅에 보내 주세요.`);
+      if (i === 0) orderPanel();
+    }));
+    $$('[data-paste]', f).forEach((b) => b.addEventListener('click', async () => {
+      let t = '';
+      try { t = await navigator.clipboard.readText(); } catch { /* 권한 없음 */ }
+      if (!t.trim()) { showManual = true; orderPanel(); toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); $('#fText')?.focus(); return; }
+      addAnswer(t, +b.dataset.paste);
+    }));
+    $('#fManual', f).addEventListener('click', () => { showManual = !showManual; sfx.tap(); orderPanel(); });
+    $('#fList', f)?.addEventListener('click', () => { showList = true; sfx.tap(); orderPanel(); });
+    const ta = $('#fText', f);
+    if (ta) ta.addEventListener('change', () => { draftText = ta.value; store.set('aa.text', draftText); orderPanel(); });
+    $('#fBrew', f).addEventListener('click', () => startBrew(draftText, false));
+    $('#fClear', f)?.addEventListener('click', () => { draftText = ''; store.set('aa.text', ''); orderPanel(); });
+  });
 }
 
-/* 붙여 넣는 즉시 읽어서 보여 준다 */
-function checkPaste(f) {
-  const out = $('#fCheck', f), btn = $('#fBrew', f);
-  const t = draftText.trim();
-  if (!t) { out.innerHTML = ''; btn.disabled = true; return; }
-  const r = parseAnalysis(t);
-  const mark = (n, max) => `<span class="${n === max ? 'ok' : n ? 'part' : 'no'}">${n}/${max}</span>`;
-  const deep = `마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>`;
-  let ok, html;
-  if (r.error) {
-    ok = false;
-    html = '<span class="no">물약 코드가 깨졌어. 코드 줄(MUL-…)을 다시 복사해 줘.</span>';
-  } else if (r.code) {
-    ok = true;
-    html = `물약 코드 <span class="ok">✓</span> · 상태값 ${mark(r.lines, 18)} · ${deep}`
-      + (r.fuzzy ? `<br><span class="part">코드 ${r.fuzzy}칸이 흐려서 그 재료는 보통으로 읽을게.</span>` : '');
-  } else {
-    const a = ANXIETY.filter((d) => r.items[d.key]).length;
-    const h = HIDDEN.filter((d) => r.items[d.key]).length;
-    ok = r.found >= 6 && a >= 4;
-    html = `재료 ${mark(a, 12)} · 환영 ${mark(h, 6)} · ${deep}`
-      + (ok ? '' : '<br><span class="no">물약 코드(MUL-…)가 든 블록을 통째로 넣어 줘.</span>');
-  }
-  out.innerHTML = html;
-  btn.disabled = !ok;
-  btn.classList.toggle('ready', ok);
+function addAnswer(t, i) {
+  const before = parseAnalysis(draftText);
+  const r1 = parseAnalysis(t);
+  if (!r1.found && !r1.deepest) { toast('레시피 줄을 찾지 못했어요. AI 답의 코드블록을 복사해 주세요.'); return; }
+  draftText = (draftText.trim() ? draftText.trim() + '\n\n' : '') + t.trim();
+  store.set('aa.text', draftText);
+  const after = parseAnalysis(draftText);
+  const gained = after.found - (before.error ? 0 : before.found);
+  sfx.plop(); buzz(14);
+  const exp = OOC_STEPS[i]?.expect || [];
+  const miss = exp.filter((c) => (c === 'DEEP' ? !r1.deepest : !r1.codes?.includes(c)));
+  toast(miss.length && exp.length ? `${exp.length - miss.length}/${exp.length}줄을 넣었어요. 빠진 줄: ${miss.join(', ')}` : `레시피 ${gained > 0 ? gained : r1.found}줄을 넣었어요.`);
+  orderPanel();
 }
 
 /* 튜토리얼: 한 줄씩, 말하는 대상을 비춘다 */
@@ -401,11 +408,12 @@ async function copyText(text) {
   }
 }
 $('#copyPrompt').addEventListener('click', async () => {
-  const i = +(store.get('aa.menuPart') || 0) % OOC_PARTS.length;
-  const ok = await copyText(OOC_PARTS[i]);
+  const n = OOC_STEPS.length;
+  const i = +(store.get('aa.menuPart') || 0) % n;
+  const ok = await copyText(OOC_STEPS[i].text);
   if (ok) store.set('aa.menuPart', String(i + 1));
-  $('#copyPrompt').textContent = `📋 주문 ${((i + 1) % OOC_PARTS.length) + 1}/${OOC_PARTS.length} 복사`;
-  toast(ok ? `주문 ${i + 1}/${OOC_PARTS.length}을 복사했어요.` : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
+  $('#copyPrompt').textContent = `📋 주문 ${((i + 1) % n) + 1}/${n} 복사`;
+  toast(ok ? `주문 ${i + 1}/${n}을 복사했어요.` : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
 });
 function runSample() {
   if (!npc) npc = '';
