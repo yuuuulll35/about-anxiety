@@ -46,7 +46,54 @@ const PC_RE = /^\[?\s*PC\s*\]?\s*[:：]?\s*(.+)$/i;
  * @param {string} raw
  * @returns {{npc:string|null, pc:string|null, items:Record<string, any>, deepest:{title:string, body:string}|null, found:number}}
  */
+/* 짧은 물약 코드:  A01=81|상태값|설명 · H03=혼란형 70|… · NPC=…|PC=… · DEEP=…|… */
+const CODE_RE = /^\s*[*\-•>]*\s*\**\s*(A|H)\s*0?(\d{1,2})\s*\**\s*[=:：]\s*(.+)$/i;
+function parseCompact(text) {
+  const items = {};
+  let npc = null, pc = null, deepest = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\*\*/g, '').trim();
+    if (!line) continue;
+    const who = line.match(/^NPC\s*[=:：]\s*([^|]+?)\s*(?:\|\s*PC\s*[=:：]\s*(.+))?$/i);
+    if (who) { npc = who[1].trim() || null; pc = who[2] ? who[2].trim() || null : pc; continue; }
+    const pcl = line.match(/^PC\s*[=:：]\s*(.+)$/i);
+    if (pcl) { pc = pcl[1].trim(); continue; }
+    const dp = line.match(/^DEEP\s*[=:：]\s*(.+)$/i);
+    if (dp) {
+      const [t, ...rest] = dp[1].split('|').map((x) => x.trim());
+      deepest = rest.length ? { title: t.replace(/^["“'‘]|["”'’]$/g, ''), body: rest.join(' ') } : { title: '', body: t };
+      continue;
+    }
+    const m = line.match(CODE_RE);
+    if (!m) continue;
+    const list = m[1].toUpperCase() === 'A' ? ANXIETY : HIDDEN;
+    const def = list[+m[2] - 1];
+    if (!def) continue;
+    const [head, status = '', ...desc] = m[3].split('|').map((x) => x.trim());
+    const n = head.match(/(\d{1,3}(?:\.\d+)?)/);
+    const tag = head.replace(/\d{1,3}(?:\.\d+)?\s*%?/, '').trim() || null;
+    const it = {
+      key: def.key, group: list === ANXIETY ? 'anxiety' : 'hidden', name: def.name,
+      pct: n ? Math.max(0, Math.min(100, Math.round(parseFloat(n[1])))) : null,
+      tag, status, desc: desc.join(' | '),
+    };
+    if (def.key === 'attach') {
+      const hay = [tag, status, it.desc].join(' ');
+      const inTag = ATTACH_TYPES.filter((t) => (tag || '').includes(t));
+      it.types = inTag.length ? inTag : ATTACH_TYPES.filter((t) => hay.includes(t)).slice(0, 1);
+    }
+    items[def.key] = it;
+  }
+  return { npc, pc, items, deepest, found: Object.keys(items).length };
+}
+
 export function parseAnalysis(raw) {
+  const compact = parseCompact(String(raw || '').replace(/\r\n?/g, '\n').replace(/```[a-z]*\n?/gi, ''));
+  if (compact.found >= 6) return compact;
+  return parseLong(raw);
+}
+
+function parseLong(raw) {
   const text = String(raw || '')
     .replace(/\r\n?/g, '\n')
     .replace(/```[a-z]*\n?/gi, '');

@@ -184,7 +184,7 @@ function goStep(s) {
       setPhase('paste');
       ask('AI 답변을 받아 왔어?',
         `<div class="say-row"><button class="mini primary" id="fClip" type="button">📥 붙여넣기</button><button class="mini" id="fRecopy" type="button">주문 다시 복사</button></div>
-         <textarea id="fText" rows="2" placeholder="또는 여기에 길게 눌러 붙여넣기" spellcheck="false">${esc(draftText)}</textarea>
+         <textarea id="fText" rows="2" placeholder="또는 여기에 붙여넣기 · [POTION] 으로 시작하는 답변" spellcheck="false">${esc(draftText)}</textarea>
          <p class="check" id="fCheck" aria-live="polite"></p>
          <button class="mini go wide" id="fBrew" type="button" disabled>솥에 불 지피기</button>`,
         (f) => {
