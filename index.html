@@ -19,51 +19,35 @@
     <!-- 방 배경 -->
     <div class="room" aria-hidden="true">
       <div class="wall"></div>
-      <div class="window"><span class="moon" id="moon">🌕</span><span class="win-bars"></span></div>
-      <div class="herbs"><i></i><i></i><i></i></div>
-      <div class="candle c-l"><b></b></div>
-      <div class="candle c-r"><b></b></div>
-      <div class="floorboards"></div>
-      <div class="rug"></div>
+      <div class="motes"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="vignette"></div>
     </div>
 
     <!-- 상단 HUD -->
     <header class="hud-top">
-      <div class="brand"><span class="brand-moon" aria-hidden="true">☾</span><h1>마녀의 속마음 실험실</h1></div>
+      <div class="brand"><h1>마녀의 속마음 실험실</h1></div>
       <span class="who" id="who" hidden></span>
+      <span class="moon-chip" title="오늘의 달"><span id="moon">🌕</span></span>
       <button class="hud-btn" id="soundBtn" type="button" aria-pressed="false" aria-label="소리 켜기"><span aria-hidden="true">♪</span><span class="sound-label">끔</span></button>
     </header>
 
-    <!-- 매달린 재료 -->
-    <div class="rack" id="rack" aria-label="매달린 재료 12병">
-      <div class="beam b1" aria-hidden="true"></div>
-      <div class="beam b2" aria-hidden="true"></div>
-      <div class="hangs" id="hangs" role="list"></div>
+    <!-- 재료 선반 -->
+    <div class="rack" id="rack" aria-label="재료 선반 12병">
+      <div class="shelf-panel">
+        <div class="hangs" id="hangs" role="list"></div>
+      </div>
     </div>
 
-    <!-- 바닥: 독서대 · 솥 · 고양이 -->
+    <!-- 솥 · 레시피책 · 고양이 -->
     <div class="floor">
       <div class="say-box" id="sayBox">
-        <span class="say-name">먹물 <small>실험실 고양이</small></span>
+        <span class="say-name">먹물</span>
         <div class="say" id="catSay" role="status" aria-live="polite"></div>
         <div class="say-form" id="sayForm" hidden></div>
       </div>
-      <button class="lectern" id="bookBtn" type="button" aria-label="주문서 펼치기">
-        <svg viewBox="0 0 120 130" aria-hidden="true">
-          <path class="lc-stand" d="M52 70 L46 124 H74 L68 70 Z"/>
-          <path class="lc-foot" d="M30 124 H90" />
-          <path class="lc-top" d="M8 58 L60 40 L112 58 L104 76 L60 62 L16 76 Z"/>
-          <path class="bk-l" d="M14 54 Q36 36 60 46 L60 58 Q36 50 18 66 Z"/>
-          <path class="bk-r" d="M106 54 Q84 36 60 46 L60 58 Q84 50 102 66 Z"/>
-          <path class="bk-lines" d="M26 52 Q40 44 54 50 M28 57 Q40 50 54 55 M94 52 Q80 44 66 50 M92 57 Q80 50 66 55"/>
-          <path class="bk-ribbon" d="M60 50 L62 84 L58 80 L56 86 Z"/>
-        </svg>
-        <span class="tag-label">주문서</span>
-        <span class="ping" aria-hidden="true"></span>
-      </button>
 
       <div class="pot-zone" id="potZone">
-        <svg class="stir-ring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47" pathLength="100"/><circle class="ring-fg" id="ringFg" cx="50" cy="50" r="47" pathLength="100"/></svg>
+        <svg class="stir-ring" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="50" cy="50" rx="47" ry="45" pathLength="100"/><ellipse class="ring-fg" id="ringFg" cx="50" cy="50" rx="47" ry="45" pathLength="100"/></svg>
         <div class="pot" id="pot" role="button" tabindex="0" aria-label="솥"></div>
         <div class="vision-rise" id="visionRise" aria-hidden="true"></div>
         <button class="flask-btn" id="flaskBtn" type="button" aria-label="봉랍 두드리기. 세 번 두드리면 깨집니다" hidden>
@@ -88,25 +72,46 @@
         </button>
       </div>
 
+      <!-- 왼쪽 아래: 레시피책 -->
+      <button class="lectern" id="bookBtn" type="button" aria-label="레시피책 펼치기">
+        <svg viewBox="0 0 150 124" aria-hidden="true">
+          <defs>
+            <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7d3a6c"/><stop offset="1" stop-color="#3f1a3a"/></linearGradient>
+          </defs>
+          <path class="bk-pages" d="M24 32 L132 20 L140 94 L32 106 Z"/>
+          <path class="bk-pagelines" d="M132 26 L139 88 M129 24 L136 90"/>
+          <path class="bk-cover" d="M14 26 Q14 20 20 19 L122 8 Q130 7 131 15 L139 86 Q140 93 133 94 L26 108 Q19 109 18 102 Z" fill="url(#cover)"/>
+          <path class="bk-spine" d="M22 22 L30 106"/>
+          <circle class="bk-emblem" cx="80" cy="56" r="17"/>
+          <path class="bk-moon" d="M86 46 A12 12 0 1 0 86 66 A9 9 0 1 1 86 46 Z"/>
+          <path class="bk-corner" d="M118 10 L130 9 L131 21 Z M124 94 L136 93 L134 82 Z"/>
+          <path class="bk-ribbon" d="M98 100 L101 122 L95 116 L90 123 L89 101 Z"/>
+        </svg>
+        <span class="tag-label">레시피</span>
+        <span class="ping" aria-hidden="true"></span>
+      </button>
+
+      <!-- 오른쪽: 빼꼼 내다보는 고양이 -->
       <div class="familiar" id="cat">
-        <svg class="cat" viewBox="0 0 140 150" aria-hidden="true">
-          <path class="cat-tail" d="M96 140 C128 138 134 108 120 94 C112 86 104 94 112 100 C120 108 116 124 94 128"/>
-          <path class="cat-body" d="M38 142 C30 120 34 100 46 92 C38 84 34 72 36 60 L30 30 L52 46 C58 43 66 42 74 43 L96 30 L92 60 C94 72 90 84 82 92 C96 100 102 120 94 142 Z"/>
-          <path class="cat-rim" d="M30 30 L52 46 M96 30 L74 43 M38 142 C30 120 34 100 46 92"/>
-          <ellipse class="cat-paw" cx="52" cy="140" rx="9" ry="5"/>
-          <ellipse class="cat-paw" cx="78" cy="140" rx="9" ry="5"/>
+        <svg class="cat" viewBox="0 0 170 170" aria-hidden="true">
+          <path class="cat-head" d="M30 116 C22 92 30 70 48 62 L42 28 L68 50 C76 48 88 48 96 50 L122 30 L116 66 C130 78 132 102 122 120 C108 142 46 142 30 116 Z"/>
+          <path class="cat-ear-in" d="M48 36 L60 52 L50 58 Z M114 38 L108 58 L100 54 Z"/>
+          <ellipse class="cat-blush" cx="50" cy="108" rx="9" ry="5"/><ellipse class="cat-blush" cx="112" cy="108" rx="9" ry="5"/>
           <g class="cat-eyes">
-            <ellipse class="cat-eye" cx="52" cy="68" rx="6.5" ry="7.5"/>
-            <ellipse class="cat-eye" cx="76" cy="68" rx="6.5" ry="7.5"/>
-            <path class="cat-pupil" d="M52 62 V74 M76 62 V74"/>
+            <ellipse class="cat-eye" cx="64" cy="92" rx="9" ry="10"/>
+            <ellipse class="cat-eye" cx="98" cy="92" rx="9" ry="10"/>
+            <g id="catPupils"><ellipse class="cat-pupil" cx="64" cy="93" rx="3" ry="7.5"/><ellipse class="cat-pupil" cx="98" cy="93" rx="3" ry="7.5"/></g>
+            <circle class="cat-glint" cx="67" cy="88" r="2"/><circle class="cat-glint" cx="101" cy="88" r="2"/>
           </g>
-          <path class="cat-nose" d="M61 77 L67 77 L64 81 Z"/>
-          <path class="cat-whisk" d="M48 82 L30 79 M48 85 L31 88 M80 82 L98 79 M80 85 L97 88"/>
+          <path class="cat-nose" d="M78 106 L86 106 L82 111 Z"/>
+          <path class="cat-mouth" d="M82 111 q-4 5 -9 2 M82 111 q4 5 9 2"/>
+          <path class="cat-whisk" d="M56 110 L30 106 M56 114 L32 118 M108 110 L134 106 M108 114 L132 118"/>
+          <g class="cat-paw"><ellipse cx="42" cy="152" rx="20" ry="11"/><path d="M34 150 v6 M42 149 v7 M50 150 v6"/></g>
           <g class="cat-hatg">
-            <path class="cat-hat" d="M44 50 C50 36 54 24 60 14 C66 4 78 0 90 4 C80 8 74 16 72 26 C70 36 74 44 82 50 Z"/>
-            <path class="cat-band" d="M46 47 C56 43 72 43 81 47 L80 52 C70 48 56 48 47 52 Z"/>
-            <ellipse class="cat-brim" cx="64" cy="52" rx="34" ry="7"/>
-            <path class="cat-star" d="M66 30 L68 35 L73 35 L69 38 L71 43 L66 40 L61 43 L63 38 L59 35 L64 35 Z"/>
+            <path class="cat-hat" d="M56 56 C62 40 68 26 76 15 C84 4 100 0 114 6 C102 10 96 19 94 30 C92 40 98 48 106 54 Z"/>
+            <path class="cat-band" d="M58 52 C70 47 92 47 104 51 L103 57 C91 53 71 53 59 58 Z"/>
+            <ellipse class="cat-brim" cx="82" cy="58" rx="42" ry="8" transform="rotate(-6 82 58)"/>
+            <path class="cat-star" d="M84 30 L86 35 L91 35 L87 38 L89 43 L84 40 L79 43 L81 38 L77 35 L82 35 Z"/>
           </g>
         </svg>
       </div>

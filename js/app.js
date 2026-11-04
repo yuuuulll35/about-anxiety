@@ -488,7 +488,7 @@ function flyBottle(el, done) {
   document.body.appendChild(fly);
   el.classList.add('flying');
   const x0 = a.left, y0 = a.top;
-  const x1 = b.left + b.width / 2 - a.width / 2, y1 = b.top + b.height * .12 - a.height / 2;
+  const x1 = b.left + b.width / 2 - a.width / 2, y1 = b.top + b.height * .3 - a.height / 2;
   const anim = fly.animate([
     { transform: `translate(${x0}px, ${y0}px) rotate(0deg)` },
     { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px) rotate(-60deg)`, offset: .45 },
@@ -604,18 +604,18 @@ const pot = $('#pot');
 const ringFg = $('#ringFg');
 const TURN = Math.PI * 2 * 1.15;
 function setLadle(a) {
-  const hx = 110 + 50 * Math.cos(a), hy = 80 + 8 * Math.sin(a);
+  const hx = 200 + 108 * Math.cos(a), hy = 140 + 50 * Math.sin(a);
   const h = $('#ladleHead'), s = $('#ladleStick');
   h.setAttribute('cx', hx.toFixed(1)); h.setAttribute('cy', hy.toFixed(1));
   s.setAttribute('x1', hx.toFixed(1)); s.setAttribute('y1', hy.toFixed(1));
-  s.setAttribute('x2', (hx * .55 + 160 * .45).toFixed(1)); s.setAttribute('y2', '-14');
+  s.setAttribute('x2', (hx * .45 + 420 * .55).toFixed(1)); s.setAttribute('y2', '-60');
 }
 setLadle(0);
 const setRing = (p) => { ringFg.style.strokeDashoffset = String(100 - Math.min(1, p) * 100); };
 const nextVision = () => HIDDEN.find((d) => data.items[d.key] && !st.dev.has(d.key));
 
 let stirring = false, lastA = 0, lastSwish = 0, summoning = false;
-const angleOf = (e) => { const r = pot.getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * .45)) * 2.2, e.clientX - (r.left + r.width / 2)); };
+const angleOf = (e) => { const r = pot.getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * .467)) * 2.1, e.clientX - (r.left + r.width / 2)); };
 pot.addEventListener('pointerdown', (e) => {
   if (phase === 'brew') { toast('재료를 모두 부은 뒤에 저을 수 있어요.'); return; }
   if (phase !== 'stir' || summoning) return;
@@ -783,6 +783,22 @@ $('#restart').addEventListener('click', () => {
   inner.addEventListener('touchmove', (e) => { if (y0 == null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) inner.style.transform = `translateY(${dy}px)`; }, { passive: true });
   inner.addEventListener('touchend', (e) => { if (y0 == null) return; const dy = e.changedTouches[0].clientY - y0; inner.style.transform = ''; y0 = null; if (dy > 110) closeSheet(); });
 })();
+
+/* 고양이 눈동자가 손가락·커서를 따라본다 */
+{
+  const pupils = $('#catPupils');
+  let raf = 0;
+  window.addEventListener('pointermove', (e) => {
+    if (reduced || raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const r = $('#cat').getBoundingClientRect();
+      const cx = r.left + r.width * .47, cy = r.top + r.height * .54;
+      const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy) || 1;
+      pupils.setAttribute('transform', `translate(${(dx / d * 4).toFixed(1)} ${(dy / d * 3).toFixed(1)})`);
+    });
+  }, { passive: true });
+}
 
 /* ───────── 시작 ───────── */
 buildHangs();
