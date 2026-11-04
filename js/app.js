@@ -1,7 +1,7 @@
 import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js';
 import { parseAnalysis } from './parse.js';
 import { SAMPLE } from './sample.js';
-import { OOC_PROMPT } from './prompt.js';
+import { OOC_PARTS } from './prompt.js';
 import { FILM_ICONS } from './icons.js';
 import { cauldronSVG } from './cauldron.js';
 import { mixBrew, colorName, hsl, moonPhase, josa } from './brew.js';
@@ -170,15 +170,7 @@ function goStep(s) {
       break;
     case 'ooc':
       setPhase('paste');
-      ask(guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자.' : '<b>진짜 레시피</b>를 받아 오자.',
-        `<button class="mini primary wide" id="fCopy" type="button">📋 주문 복사하기</button>
-         <p class="say-hint">복사해서 롤플 채팅에 보내면 돼.</p>`,
-        (f) => $('#fCopy', f).addEventListener('click', async () => {
-          const ok = await copyText(OOC_PROMPT);
-          if (!ok) { toast('복사하지 못했어요. 주문서 메뉴에서 다시 시도해 주세요.'); return; }
-          store.set('aa.copied', '1'); sfx.cork(); buzz(10);
-          goStep('paste');
-        }));
+      oocPart(0);
       break;
     case 'paste':
       setPhase('paste');
@@ -198,12 +190,36 @@ function goStep(s) {
               ta.value = t; update(); sfx.plop();
             } catch { toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); ta.focus(); }
           });
-          $('#fRecopy', f).addEventListener('click', async () => { if (await copyText(OOC_PROMPT)) toast('주문을 다시 복사했어요.'); });
+          $('#fRecopy', f).addEventListener('click', () => { sfx.tap(); goStep('ooc'); });
           $('#fBrew', f).addEventListener('click', () => startBrew(draftText, false));
           checkPaste(f);
         });
       break;
   }
+}
+
+/* 주문(OOC)을 채팅 입력 제한에 맞춰 나눈 조각을 차례로 복사한다 */
+function oocPart(k) {
+  const n = OOC_PARTS.length;
+  const first = k === 0;
+  const text = first
+    ? (guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자.' : '<b>진짜 레시피</b>를 받아 오자.')
+      + (n > 1 ? ` 주문이 길어서 <b>${n}번에 나눠</b> 보내야 해.` : '')
+    : `좋아. AI가 "주문 ${k}/${n} 확인"이라고 답했으면 <b>${k + 1}번째</b>를 보내 줘.`;
+  ask(text,
+    `<div class="parts">${OOC_PARTS.map((_, j) => `<i class="${j < k ? 'done' : j === k ? 'now' : ''}">${j + 1}</i>`).join('')}</div>
+     <button class="mini primary wide" id="fCopy" type="button">📋 주문 ${k + 1}/${n} 복사</button>
+     <p class="say-hint">${k === n - 1 ? '이걸 보내면 AI가 물약 레시피를 줄 거야.' : '복사해서 롤플 채팅에 보내고 돌아와.'}</p>
+     ${k > 0 ? '<button class="link-btn" type="button" id="fBack">앞 조각 다시 복사</button>' : ''}`,
+    (f) => {
+      $('#fCopy', f).addEventListener('click', async () => {
+        if (!(await copyText(OOC_PARTS[k]))) { toast('복사하지 못했어요. 주문서 메뉴에서 다시 시도해 주세요.'); return; }
+        store.set('aa.copied', String(k + 1)); sfx.cork(); buzz(10);
+        toast(`주문 ${k + 1}/${n}을 복사했어요.`);
+        if (k + 1 < n) oocPart(k + 1); else goStep('paste');
+      });
+      $('#fBack', f)?.addEventListener('click', async () => { if (await copyText(OOC_PARTS[k - 1])) toast(`주문 ${k}/${n}을 다시 복사했어요.`); });
+    });
 }
 
 /* 붙여 넣는 즉시 읽어서 보여 준다 */
@@ -385,7 +401,11 @@ async function copyText(text) {
   }
 }
 $('#copyPrompt').addEventListener('click', async () => {
-  toast((await copyText(OOC_PROMPT)) ? '주문(OOC)을 복사했어요.' : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
+  const i = +(store.get('aa.menuPart') || 0) % OOC_PARTS.length;
+  const ok = await copyText(OOC_PARTS[i]);
+  if (ok) store.set('aa.menuPart', String(i + 1));
+  $('#copyPrompt').textContent = `📋 주문 ${((i + 1) % OOC_PARTS.length) + 1}/${OOC_PARTS.length} 복사`;
+  toast(ok ? `주문 ${i + 1}/${OOC_PARTS.length}을 복사했어요.` : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
 });
 function runSample() {
   if (!npc) npc = '';

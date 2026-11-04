@@ -108,13 +108,16 @@ function parseMul(text) {
       continue;
     }
     const m = line.match(LINE_RE);
-    if (m) lines[`${m[1].toUpperCase()}${m[2].padStart(2, '0')}`] = m[3].replace(/^\d{1,3}\s*%?\s*\|\s*/, '').split('|')[0].trim();
+    if (m) {
+      const [st, ...ds] = m[3].replace(/^\d{1,3}\s*%?\s*\|\s*/, '').split('|').map((x) => x.trim());
+      lines[`${m[1].toUpperCase()}${m[2].padStart(2, '0')}`] = { st, ds: ds.join(' ') };
+    }
   }
   const items = {};
   SLOTS.forEach(({ code, def }, i) => {
     const group = code[0] === 'A' ? 'anxiety' : 'hidden';
     const it = { key: def.key, group, name: def.name, pct: levelToPct(d.levels[i]), level: d.levels[i],
-      uncertain: d.fuzzy.includes(i), tag: null, status: lines[code] || '', desc: '' };
+      uncertain: d.fuzzy.includes(i), tag: null, status: lines[code]?.st || '', desc: lines[code]?.ds || '' };
     if (def.key === 'attach') { it.types = d.type ? [d.type] : []; it.tag = d.type; }
     items[def.key] = it;
   });

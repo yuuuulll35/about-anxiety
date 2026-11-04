@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseAnalysis } from '../js/parse.js';
 import { encode, decode, ROWS, CHARSET, levelToPct } from '../js/codebook.js';
 import { SAMPLE } from '../js/sample.js';
-import { OOC_PROMPT } from '../js/prompt.js';
+import { OOC_PARTS, INPUT_LIMIT } from '../js/prompt.js';
 
 test('표는 자리마다 10개 서로 다른 허용 문자', () => {
   assert.equal(ROWS.length, 18);
@@ -59,7 +59,18 @@ test('줄에 수치를 붙여 와도 상태값만 남긴다', () => {
   assert.equal(r.items.health.pct, levelToPct(5));
 });
 
-test('OOC 에 18개 표와 애착 유형 문자가 들어 있다', () => {
-  assert.equal((OOC_PROMPT.match(/^[AH]\d\d .+: 0=/gm) || []).length, 18);
-  assert.match(OOC_PROMPT, /혼란형=J/);
+test('주문 조각은 모두 채팅 입력 제한 안이고, 항목 정의와 변환표가 빠짐없이 들어 있다', () => {
+  for (const p of OOC_PARTS) assert.ok([...p].length <= INPUT_LIMIT, `${[...p].length}자`);
+  const all = OOC_PARTS.join('\n');
+  assert.equal((all.match(/^[AH]\d\d .+: .+/gm) || []).length, 18);
+  assert.match(all, /근거 없는 수치나 억지스러운 심리 해석은 금지/);
+  assert.match(all, /0=Q 1=7/);
+  assert.match(all, /혼란형=J/);
+  assert.match(OOC_PARTS[0], /주문 1\/2 확인/);
+});
+
+test('상태값 | 설명 을 둘 다 읽는다', () => {
+  const r = parseAnalysis(SAMPLE);
+  assert.match(r.items.health.desc, /직업병/);
+  assert.match(r.items.health.status, /응급실/);
 });

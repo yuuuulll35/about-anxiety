@@ -4,11 +4,9 @@
 import { ANXIETY, HIDDEN } from './items.js';
 
 export const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // O I L 0 1 제외
-export const ROWS = [
-  '2XGMNSVAHP', 'AX6UVWZCRP', '7AR6YFUSZH', '5986D3KZ4G', 'D3YMUTS48P', 'URMF2Q5GEW',
-  'HYBUM2STA4', 'NSPQGHYTA2', '2RUH7K3YQX', 'BDT8MQE2UA', '63JWNCF4Z5', '8KXQH3R5FD',
-  'KY43HXPCZW', 'VTD2WUP79X', 'UWVJ3D5QG8', 'KWYXH97UGM', '29RUTBXCZF', 'AWK9SFDP7Y',
-];
+// 모든 자리가 같은 표를 쓴다 (OOC 를 1,500자 안에 넣기 위해)
+export const ROW = 'Q7MRXK9BWT';
+export const ROWS = Array(18).fill(ROW);
 export const TYPE_CODE = { 안정형: 'S', 불안형: 'N', 회피형: 'V', 혼란형: 'J' };
 const TYPE_OF = Object.fromEntries(Object.entries(TYPE_CODE).map(([k, v]) => [v, k]));
 export const SLOTS = [
@@ -48,7 +46,5 @@ export function decode(text) {
 
 /** OOC 에 넣을 표 */
 export function tableText() {
-  const rows = SLOTS.map(({ code, def }, i) => `${code} ${def.name}: ${[...ROWS[i]].map((c, lv) => `${lv}=${c}`).join(' ')}`);
-  rows.push(`애착 유형 문자: ${Object.entries(TYPE_CODE).map(([k, v]) => `${k}=${v}`).join(' ')}`);
-  return rows.join('\n');
+  return `${[...ROW].map((c, lv) => `${lv}=${c}`).join(' ')}\n애착: ${Object.entries(TYPE_CODE).map(([k, v]) => `${k}=${v}`).join(' ')}`;
 }

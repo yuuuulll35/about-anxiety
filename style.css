@@ -942,3 +942,9 @@ body { background: #0f0b1d; }
     border-right: 1px solid var(--ink-edge); border-bottom: 0; border-top: 1px solid var(--ink-edge);
     clip-path: polygon(0 0, 100% 50%, 0 100%); }
 }
+
+/* 주문 조각 진행 표시 */
+.parts { display: flex; gap: 6px; }
+.parts i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; font-style: normal; font-size: 12px; font-weight: 700; border: 1px solid rgba(43, 32, 51, .3); color: #8a7a6a; }
+.parts i.now { background: #9d2f55; color: #fff; border-color: transparent; }
+.parts i.done { background: #c8fa86; color: #13200a; border-color: transparent; }
