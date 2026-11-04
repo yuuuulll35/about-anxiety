@@ -9,54 +9,64 @@ import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js';
 import { setSound, soundOn, sfx, buzz } from './sound.js';
 
 const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const pad2 = (n) => String(n).padStart(2, '0');
-const smooth = () => (reduced ? 'auto' : 'smooth');
-const short = (name) => name.replace(/ ?(불안도|염려도)$/, '');
+const lastWord = (s) => s.split(' ').pop();
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* 저장 불가 환경 */ } },
 };
 
-let data = null;
-let st = null;
+const stage = $('#stage');
+let phase = 'title';
+let data = null;    // 파싱 결과
+let st = null;      // 실험 상태
 let npc = 'NPC';
 let pc = '';
 let brew = null;
 
-/* ───────── 토스트 ───────── */
+/* ───────── 공통 UI ───────── */
 let toastT;
 function toast(msg) {
   const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-/* ───────── 소리 ───────── */
+const cat = $('#cat');
+function say(html) {
+  $('#catSay').innerHTML = html;
+  cat.classList.remove('talk'); void cat.offsetWidth; cat.classList.add('talk');
+}
+
+const actBtn = $('#actBtn');
+let actFn = null;
+function act(label, fn) {
+  if (!label) { actBtn.hidden = true; actFn = null; return; }
+  actBtn.hidden = false; actBtn.textContent = label; actFn = fn;
+}
+actBtn.addEventListener('click', () => { sfx.tap(); actFn && actFn(); });
+
+/* 소리 */
 const soundBtn = $('#soundBtn');
 function paintSound() {
   soundBtn.setAttribute('aria-pressed', String(soundOn()));
-  $('.sound-label', soundBtn).textContent = soundOn() ? '소리 켬' : '소리 끔';
+  soundBtn.setAttribute('aria-label', soundOn() ? '소리 끄기' : '소리 켜기');
+  $('.sound-label', soundBtn).textContent = soundOn() ? '켬' : '끔';
 }
-soundBtn.addEventListener('click', () => {
-  setSound(!soundOn());
-  store.set('aa.sound', soundOn() ? '1' : '0');
-  paintSound(); sfx.tap();
-});
-if (store.get('aa.sound') === '1') { // 오디오는 첫 사용자 동작 이후에만 켤 수 있다
-  window.addEventListener('pointerdown', () => { setSound(true); paintSound(); }, { once: true });
-}
+soundBtn.addEventListener('click', () => { setSound(!soundOn()); store.set('aa.sound', soundOn() ? '1' : '0'); paintSound(); sfx.tap(); });
+if (store.get('aa.sound') === '1') window.addEventListener('pointerdown', () => { setSound(true); paintSound(); }, { once: true });
 paintSound();
 
-/* ───────── 솥 그리기 ───────── */
-$('#pot0').innerHTML = cauldronSVG('0');
-$('#pot1').innerHTML = cauldronSVG('1');
-$('#pot2').innerHTML = cauldronSVG('2', true);
-const pots = () => document.querySelectorAll('#room .cauldron');
+/* 솥·달 */
+$('#pot').innerHTML = cauldronSVG('p', true);
+const m = moonPhase();
+$('#moon').textContent = m.icon;
+$('#moon').parentElement.title = `오늘의 달 · ${m.label}`;
 
 function setBrewVars(target, b) {
   const s = target.style;
@@ -66,247 +76,309 @@ function setBrewVars(target, b) {
     s.setProperty('--brew-d', hsl(b.h, b.s, b.l * .5));
   } else ['--brew', '--brew-l', '--brew-d'].forEach((p) => s.removeProperty(p));
 }
+function setLevel(lv) { $$('#pot .cauldron').forEach((p) => p.style.setProperty('--lv', lv.toFixed(2))); }
 
-function applyBrew() {
-  const parts = st ? ANXIETY.filter((d) => st.poured.has(d.key)).map((d) => ({ color: d.color, pct: data.items[d.key].pct })) : [];
-  brew = mixBrew(parts);
-  setBrewVars(document.documentElement, brew);
-  $('#brewColorName').textContent = brew ? `${colorName(brew)} 물약` : '아직 맹물';
-  const lv = st ? st.poured.size / 12 : 0;
-  pots().forEach((p) => p.style.setProperty('--lv', lv.toFixed(2)));
-}
-
-/* ───────── 접수 1: 먼저 짐작 ───────── */
-const rxText = $('#rxText');
+/* ───────── 짐작 상태 ───────── */
 const npcIn = $('#npcName');
 const pcIn = $('#pcName');
-rxText.value = store.get('aa.text') || '';
+const rxText = $('#rxText');
 npcIn.value = store.get('aa.npc') || '';
 pcIn.value = store.get('aa.pc') || '';
-npcIn.addEventListener('input', () => store.set('aa.npc', npcIn.value));
+rxText.value = store.get('aa.text') || '';
+npcIn.addEventListener('input', () => { store.set('aa.npc', npcIn.value); paintWho(); });
 pcIn.addEventListener('input', () => store.set('aa.pc', pcIn.value));
 
 const GUESS_PCT = { low: 20, mid: 55, high: 85 };
 const GUESS_H = { low: 24, mid: 55, high: 88 };
 const CYCLE = [null, 'low', 'mid', 'high'];
-let G = { g: {}, attach: null, sealed: false };
-try { G = { ...G, ...JSON.parse(store.get('aa.guess') || '{}') }; } catch { /* 깨진 값은 무시 */ }
+let G = { g: {}, attach: null };
+try { G = { ...G, ...JSON.parse(store.get('aa.guess') || '{}') }; } catch { /* 무시 */ }
 const saveGuess = () => store.set('aa.guess', JSON.stringify(G));
 const guessN = () => Object.keys(G.g).length;
 let guessBrew = null;
 
-function buildGuessShelf() {
-  const wrap = $('#guessShelf');
+function paintWho() {
+  const n = (st ? npc : npcIn.value.trim());
+  $('#who').hidden = !n;
+  $('#who').textContent = n ? `${n}의 속마음` : '';
+}
+
+/* ───────── 매달린 병 ───────── */
+const LEN = [10, 26, 16, 34, 8, 22, 18, 8, 30, 14, 24, 12];
+function buildHangs() {
+  const wrap = $('#hangs');
   wrap.innerHTML = '';
   ANXIETY.forEach((d, i) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `jar guess-jar shape-${i % 3}`;
+    b.className = `hang shape-${i % 4}`;
     b.dataset.key = d.key;
-    b.style.setProperty('--c', d.color);
     b.setAttribute('role', 'listitem');
+    b.style.setProperty('--c', d.color);
+    b.style.setProperty('--len', `calc(${LEN[i]}px * var(--bottle) / 60px)`);
+    b.style.animationDelay = `${-(i * 0.73) % 4.5}s`;
     b.innerHTML = `
-      <span class="jar-art" aria-hidden="true">
-        <span class="cork"></span>
-        <span class="glass"><span class="liquid"></span><span class="shine"></span></span>
-      </span>
-      <span class="tag">
-        <b>No.${pad2(i + 1)}</b>
-        <span class="tag-ing">${esc(d.ing)}</span>
-        <span class="tag-name">${esc(d.name)}</span>
-        <span class="tag-guess"></span>
-      </span>`;
-    b.addEventListener('click', () => {
-      const next = CYCLE[(CYCLE.indexOf(G.g[d.key] ?? null) + 1) % CYCLE.length];
-      if (next) G.g[d.key] = next; else delete G.g[d.key];
-      G.sealed = false;
-      saveGuess(); paintGuess(); sfx.tap(); buzz(6);
-    });
+      <span class="bottle" aria-hidden="true"><span class="cork"></span><span class="glass"><span class="liquid"></span><span class="shine"></span></span><span class="q">?</span></span>
+      <span class="label">${esc(lastWord(d.ing))}<small></small></span>`;
+    b.addEventListener('click', () => onHang(d.key));
     wrap.appendChild(b);
   });
-  const pick = $('#attachPick');
-  pick.querySelectorAll('label').forEach((l) => l.remove());
-  ATTACH_TYPES.forEach((t) => {
-    const l = document.createElement('label');
-    l.className = 'chip';
-    l.innerHTML = `<input type="radio" name="attachGuess" value="${t}"> ${t}`;
-    $('input', l).addEventListener('click', (e) => {
-      // 같은 것을 다시 누르면 해제
-      if (G.attach === t) { e.target.checked = false; G.attach = null; } else G.attach = t;
-      G.sealed = false; saveGuess(); paintGuess(); sfx.tap();
-    });
-    pick.appendChild(l);
+}
+const hangEl = (k) => $(`.hang[data-key="${k}"]`);
+
+function paintHangs() {
+  ANXIETY.forEach((d) => {
+    const el = hangEl(d.key);
+    const sm = $('.label small', el);
+    if (phase === 'guess' || phase === 'title' || phase === 'paste') {
+      const g = G.g[d.key];
+      el.classList.toggle('set', !!g);
+      el.style.setProperty('--h', g ? GUESS_H[g] + '%' : '0%');
+      sm.textContent = g ? TIER_LABEL[g] : (phase === 'guess' ? '?' : '');
+      el.setAttribute('aria-label', `${d.ing}, ${d.name}. 내 짐작 ${g ? TIER_LABEL[g] : '없음'}`);
+    } else {
+      const it = data.items[d.key];
+      el.style.setProperty('--h', '70%');
+      el.classList.toggle('empty', !it);
+      if (st.poured.has(d.key)) sm.textContent = it.pct != null ? it.pct + '%' : '—';
+      else sm.textContent = it ? '' : '없음';
+      el.setAttribute('aria-label', `${d.ing}, ${d.name}${st.poured.has(d.key) ? `, ${it.pct}% 솥에 넣음` : it ? ', 눌러서 솥에 붓기' : ', 기록 없음'}`);
+    }
   });
 }
 
+function onHang(key) {
+  if (phase === 'title') { toast('먼저 주문서를 펴서 의뢰 대상을 적어 주세요.'); lecternCall(true); return; }
+  if (phase === 'guess') {
+    const next = CYCLE[(CYCLE.indexOf(G.g[key] ?? null) + 1) % CYCLE.length];
+    if (next) G.g[key] = next; else delete G.g[key];
+    saveGuess(); paintGuess(); sfx.tap(); buzz(6);
+    return;
+  }
+  if (phase === 'paste') { toast('짐작은 봉인됐어요. 주문서를 펴서 결과를 넣어 주세요.'); lecternCall(true); return; }
+  // 실험 중
+  const it = data.items[key];
+  if (!it) { toast('AI 답변에 이 재료가 없어요.'); return; }
+  if (st.poured.has(key)) { showIng(key, false); return; }
+  if (phase !== 'brew' || st.busy) return;
+  pour(key);
+}
+
+/* ───────── 짐작 ───────── */
 function paintGuess() {
-  document.querySelectorAll('.guess-jar').forEach((b) => {
-    const g = G.g[b.dataset.key];
-    b.classList.toggle('set', !!g);
-    b.style.setProperty('--h', g ? GUESS_H[g] + '%' : '0%');
-    $('.tag-guess', b).textContent = g ? TIER_LABEL[g] : '비어 있음';
-    const d = ANXIETY.find((x) => x.key === b.dataset.key);
-    b.setAttribute('aria-label', `${d.ing}, ${d.name}: ${g ? TIER_LABEL[g] : '짐작 안 함'}. 눌러서 바꾸기`);
-  });
-  $('#attachPick').querySelectorAll('input').forEach((i) => { i.checked = i.value === G.attach; });
+  paintHangs();
   guessBrew = mixBrew(ANXIETY.filter((d) => G.g[d.key]).map((d) => ({ color: d.color, pct: GUESS_PCT[G.g[d.key]] })));
-  setBrewVars($('#pGuess'), guessBrew);
-  $('#pGuess').querySelectorAll('.cauldron').forEach((p) => p.style.setProperty('--lv', (guessN() / 12).toFixed(2)));
-  $('#guessBrewName').textContent = guessBrew ? `예상: ${colorName(guessBrew)} 물약` : '아직 맹물';
-  $('#guessCount').textContent = guessN();
-  $('#sealGuess').textContent = G.sealed ? '봉인됨 · 주문서로 가기' : '짐작 봉인하고 주문서 받기';
+  $('#vialGuess').style.setProperty('--v', guessBrew ? hsl(guessBrew.h, guessBrew.s, guessBrew.l) : 'transparent');
+  if (phase === 'guess' || phase === 'title' || phase === 'paste') {
+    setBrewVars(document.documentElement, guessBrew);
+    setLevel(guessN() / 12);
+    $('#brewText').textContent = guessBrew ? `예상 · ${colorName(guessBrew)}` : '맹물';
+  }
   const n = guessN();
   $('#guessStatus').innerHTML = n || G.attach
     ? `봉인된 짐작: 재료 <b>${n}/12</b>병${G.attach ? ` · 애착 유형 <b>${esc(G.attach)}</b>` : ''}. 솥에 부을 때 하나씩 대조해 드려요.`
-    : '짐작 없이 진행합니다. 대조해 보고 싶다면 <a href="#pGuess">1단계</a>에서 먼저 짐작해 주세요.';
+    : '짐작 없이 진행해요. 결과만 보여 드릴게요.';
+  if (phase === 'guess') act(n ? `짐작 봉인 (${n}/12)` : '짐작 봉인', sealGuess);
 }
 
-$('#sealGuess').addEventListener('click', () => {
-  G.sealed = true; saveGuess(); paintGuess();
-  sfx.knock();
-  toast(guessN() ? `짐작 ${guessN()}병을 봉인했어요. 이제 주문서를 보내세요.` : '짐작 없이 진행해요. 주문서를 보내세요.');
-  $('#pOoc').scrollIntoView({ behavior: smooth(), block: 'start' });
-});
-$('#clearGuess').addEventListener('click', () => {
-  G = { g: {}, attach: null, sealed: false }; saveGuess(); paintGuess(); sfx.tap();
-});
-buildGuessShelf();
-paintGuess();
+function askAttach() {
+  say(`좋아, 봉인했다냥. 마지막으로 <b>${esc(npc || 'NPC')}</b>의 애착 유형은 뭘 것 같아?
+    <span class="chips">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${t}</button>`).join('')}<button type="button" data-at="">모르겠어</button></span>`);
+  $$('#catSay [data-at]').forEach((b) => b.addEventListener('click', () => {
+    G.attach = b.dataset.at || null; saveGuess(); sfx.tap();
+    setPhase('paste');
+    openBook('ooc');
+  }));
+}
 
-/* ───────── 접수 2·3 ───────── */
+function sealGuess() {
+  sfx.knock(); buzz(12);
+  store.set('aa.phase', 'paste');
+  act(null);
+  askAttach();
+}
+
+/* ───────── 단계 ───────── */
+function lecternCall(on) { $('#bookBtn').classList.toggle('call', on); }
+
+function setPhase(p) {
+  phase = p;
+  stage.dataset.phase = p;
+  if (['title', 'guess', 'paste'].includes(p)) store.set('aa.phase', p);
+  lecternCall(p === 'title' || p === 'paste' || p === 'done');
+  $('#flaskBtn').hidden = p !== 'seal';
+  paintRibbons();
+  switch (p) {
+    case 'title':
+      say('어서 와, 의뢰인. 오늘은 누구의 속마음을 끓여 볼까냥? <b>주문서</b>를 펴 봐.');
+      act('주문서 펴기', () => openBook('name'));
+      break;
+    case 'guess':
+      say(`AI가 보기 전에 네가 먼저 맞혀 봐. 병을 누를 때마다 <b>옅음 → 보통 → 진함 → 비움</b>. ${esc(npc)}의 불안이 얼마나 진할 것 같아?`);
+      paintGuess();
+      break;
+    case 'paste':
+      say('주문서를 펴서 <b>주문(OOC)</b>을 채팅에 외우고, 받아 온 답변을 <b>재료</b> 장에 넣어 줘.');
+      act('주문서 펴기', () => openBook(rxText.value.trim() ? 'paste' : 'ooc'));
+      paintGuess();
+      break;
+    case 'brew':
+      say(st.guessed || Object.keys(st.guesses).length ? '재료가 준비됐다냥. 병을 눌러 솥에 부으면 네 짐작과 대조해 줄게.' : '재료가 준비됐다냥. 병을 하나씩 눌러 솥에 부어 봐.');
+      act(null);
+      break;
+    case 'stir':
+      say('재료가 다 들어갔어! 이제 <b>솥 안을 빙글빙글</b> 저어 봐. 초록 고리가 차면 연기 속에서 뭔가 떠오를 거야.');
+      act(null);
+      break;
+    case 'seal':
+      say('솥에서 마지막 병이 떠올랐다냥… 본인도 인정하기 싫은 게 들었어. <b>봉랍을 세 번</b> 두드려 봐.');
+      act(null);
+      break;
+    case 'done':
+      say(`완성이다냥! 레시피는 주문서 마지막 장에 적어 뒀어. ${st.guessed ? `네 짐작은 <b>${st.hits}/${st.guessed}</b> 맞았어.` : ''}`);
+      act('레시피 보기', () => openBook('recipe'));
+      break;
+  }
+}
+
+/* ───────── 주문서(책) ───────── */
+const book = $('#book');
+function paintRibbons() {
+  const brewing = !['title', 'guess', 'paste'].includes(phase);
+  $$('.ribbons button').forEach((b) => {
+    const pg = b.dataset.page;
+    b.disabled = brewing && pg !== 'recipe';
+  });
+}
+function openBook(page) {
+  showPage(page);
+  if (!book.open) book.showModal();
+  sfx.cork();
+}
+function showPage(page) {
+  $$('.page', book).forEach((p) => p.classList.toggle('on', p.dataset.page === page));
+  $$('.ribbons button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === page ? 'page' : 'false'));
+  book.querySelector('.book-inner').scrollTop = 0;
+}
+$$('.ribbons button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); sfx.tap(); }));
+$$('[data-goto]').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.goto)));
+$('[data-book-close]').addEventListener('click', () => book.close());
+book.addEventListener('click', (e) => { if (e.target === book) book.close(); });
+$('#bookBtn').addEventListener('click', () => {
+  if (phase === 'title') openBook('name');
+  else if (phase === 'guess') openBook('name');
+  else if (phase === 'paste') openBook(rxText.value.trim() ? 'paste' : 'ooc');
+  else openBook('recipe');
+});
+
+$('#goGuess').addEventListener('click', () => {
+  npc = npcIn.value.trim() || 'NPC'; paintWho();
+  book.close(); setPhase('guess');
+});
+$('#skipGuess').addEventListener('click', () => {
+  npc = npcIn.value.trim() || 'NPC'; paintWho();
+  G = { g: {}, attach: null }; saveGuess();
+  setPhase('paste'); showPage('ooc');
+});
 
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {
     const ta = document.createElement('textarea');
     ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
+    book.appendChild(ta); ta.select();
     let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
     ta.remove(); return ok;
   }
 }
 $('#copyPrompt').addEventListener('click', async () => {
   const ok = await copyText(OOC_PROMPT);
-  toast(ok ? '주문서를 베꼈어요. 롤플 채팅에 보내 주세요.' : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
+  if (phase === 'title' || phase === 'guess') setPhase('paste');
+  toast(ok ? '주문서를 복사했어요. 롤플 채팅에 보내 주세요.' : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
 });
-$('#loadSample').addEventListener('click', () => {
-  rxText.value = SAMPLE; npcIn.value = ''; pcIn.value = '';
-  start();
-});
-$('#rxForm').addEventListener('submit', (e) => { e.preventDefault(); start(); });
+$('#loadSample').addEventListener('click', () => { rxText.value = SAMPLE; startBrew(true); });
+$('#brewBtn').addEventListener('click', () => startBrew(false));
 
-function start() {
+function startBrew(isSample) {
   const msg = $('#formMsg');
   if (!rxText.value.trim()) { msg.textContent = 'AI 답변을 붙여 넣어 주세요.'; rxText.focus(); return; }
   const parsed = parseAnalysis(rxText.value);
   const anxFound = ANXIETY.filter((d) => parsed.items[d.key]).length;
-  if (parsed.found < 6 || anxFound < 4) {
-    msg.textContent = `재료를 충분히 찾지 못했어요 (찾은 항목 ${parsed.found}개). AI 답변 전체를 붙여 넣었는지 확인해 주세요.`;
-    return;
-  }
+  if (parsed.found < 6 || anxFound < 4) { msg.textContent = `재료를 충분히 찾지 못했어요 (찾은 항목 ${parsed.found}개). 답변 전체를 붙여 넣었는지 확인해 주세요.`; return; }
   msg.textContent = '';
   data = parsed;
   npc = npcIn.value.trim() || parsed.npc || 'NPC';
   pc = pcIn.value.trim() || parsed.pc || '';
-  if (rxText.value !== SAMPLE) store.set('aa.text', rxText.value);
-  G.sealed = true; saveGuess();
-  sfx.tap();
-  buildRoom();
-  $('#intake').hidden = true;
-  $('#room').hidden = false;
-  window.scrollTo({ top: 0, behavior: smooth() });
-}
-
-/* ───────── 실험실 ───────── */
-function today() {
-  const d = new Date();
-  return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`;
-}
-
-function buildRoom() {
-  // 붙여넣기 순간의 짐작을 고정한다. 수치가 없는 항목의 짐작은 대조할 수 없으니 뺀다.
+  if (!isSample) store.set('aa.text', rxText.value);
+  // 붙여넣는 순간 짐작을 고정한다
   const guesses = {};
   for (const [k, v] of Object.entries(G.g)) if (data.items[k]?.pct != null) guesses[k] = v;
-  st = { poured: new Set(), opened: new Set(), guesses, attachGuess: G.attach, guessBrew, hits: 0, guessed: 0, dev: new Set(), seal: 'locked', knocks: 0, acc: 0 };
-  $('#tNpc').textContent = npc;
+  st = { poured: new Set(), guesses, attachGuess: G.attach, guessBrew, hits: 0, guessed: 0, dev: new Set(), knocks: 0, acc: 0, busy: false };
+  ANXIETY.forEach((d) => { if (!data.items[d.key]) st.poured.add(d.key); });
+  HIDDEN.forEach((d) => { if (!data.items[d.key]) st.dev.add(d.key); });
   $('#kNpc').textContent = npc;
-  $('#tPc').textContent = pc || '—';
-  $('#tDate').textContent = today();
-  const m = moonPhase();
-  $('#tMoon').textContent = m.icon;
-  $('#tMoonLabel').textContent = m.label;
-  buildShelf();
-  buildOrbs();
-  resetSeal();
-  $('#recipeStep').hidden = true;
-  applyBrew();
-  updateCounts();
+  paintWho();
+  book.close();
+  // 솥을 비우고 시작
+  $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty'); $('.mark', h)?.remove(); });
+  brew = null; setBrewVars(document.documentElement, null); setLevel(0);
+  $('#brewText').textContent = '맹물';
+  $('#vialReal').style.setProperty('--v', 'transparent');
+  $('#recipe').innerHTML = '<p class="pg-note">아직 완성된 물약이 없어요.</p>';
+  buildTracks();
+  setPhase('brew');
+  paintHangs();
+  sfx.plop();
 }
 
-/* STEP 1 ─ 재료 선반 */
-function buildShelf() {
-  const wrap = $('#shelf');
-  wrap.innerHTML = '';
-  ANXIETY.forEach((d, i) => {
-    const it = data.items[d.key];
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = `jar shape-${i % 3}` + (it ? '' : ' empty');
-    b.dataset.key = d.key;
-    b.style.setProperty('--c', d.color);
-    b.setAttribute('role', 'listitem');
-    b.setAttribute('aria-label', `${pad2(i + 1)}번 재료 ${d.ing}, ${d.name}${it ? ', 아직 넣지 않음' : ', 기록 없음'}`);
-    b.innerHTML = `
-      <span class="jar-art" aria-hidden="true">
-        <span class="cork"></span>
-        <span class="glass"><span class="liquid"></span><span class="shine"></span></span>
-      </span>
-      <span class="tag">
-        <b>No.${pad2(i + 1)}</b>
-        <span class="tag-ing">${esc(d.ing)}</span>
-        <span class="tag-name">${esc(d.name)}</span>
-        <span class="tag-pct">${it && it.pct != null ? it.pct + '%' : '—'}</span>
-      </span>`;
-    if (!it) { st.opened.add(d.key); }
-    b.addEventListener('click', () => onJar(d.key));
-    wrap.appendChild(b);
-  });
+/* ───────── HUD ───────── */
+function buildTracks() {
+  $('#trackDrops').innerHTML = ANXIETY.map((d) => `<i data-k="${d.key}" style="--c:${d.color}" title="${esc(d.ing)}"></i>`).join('');
+  $('#trackStars').innerHTML = HIDDEN.map((d) => `<i data-k="${d.key}" title="${esc(d.name)}"></i>`).join('');
+  $('#trackSeal i').classList.remove('on');
+  ANXIETY.forEach((d) => { if (!data.items[d.key]) $(`#trackDrops [data-k="${d.key}"]`).classList.add('on'); });
 }
 
-const jarEl = (key) => $(`#shelf .jar[data-key="${key}"]`);
-
-function onJar(key) {
-  const it = data.items[key];
-  if (!it) { toast('AI 답변에 이 재료가 없어요.'); return; }
-  sfx.tap();
-  if (st.poured.has(key)) { showIng(key, false); return; }
-  if (jarEl(key).classList.contains('pouring')) return;
-  pour(key);
+function applyBrew() {
+  const parts = ANXIETY.filter((d) => st.poured.has(d.key) && data.items[d.key]).map((d) => ({ color: d.color, pct: data.items[d.key].pct }));
+  brew = mixBrew(parts);
+  setBrewVars(document.documentElement, brew);
+  setLevel(st.poured.size / 12);
+  $('#brewText').textContent = brew ? `${colorName(brew)} 물약` : '맹물';
+  $('#vialReal').style.setProperty('--v', brew ? hsl(brew.h, brew.s, brew.l) : 'transparent');
 }
 
-function vialHTML(color, h) { return `<span class="vial" style="--c:${color};--h:${h}%"></span>`; }
-
-function flyDrop(fromEl, color, done) {
-  const potSvg = $('#pot1 .cauldron');
-  if (reduced || !potSvg) { done(); return; }
-  const a = fromEl.getBoundingClientRect();
+/* ───────── 붓기 ───────── */
+function flyBottle(el, done) {
+  const src = $('.bottle', el);
+  const potSvg = $('#pot .cauldron');
+  if (reduced) { done(); return; }
+  const a = src.getBoundingClientRect();
   const b = potSvg.getBoundingClientRect();
-  const x0 = a.left + a.width / 2, y0 = a.top + a.height * .2;
-  const x1 = b.left + b.width / 2, y1 = b.top + b.height * .36;
-  const peak = Math.min(y0, y1) - 70;
-  const drop = document.createElement('i');
-  drop.className = 'drop';
-  drop.style.setProperty('--c', color);
-  document.body.appendChild(drop);
-  const anim = drop.animate([
-    { transform: `translate(${x0}px, ${y0}px) scale(.6)` },
-    { transform: `translate(${(x0 + x1) / 2}px, ${peak}px) scale(1.1) rotate(-20deg)`, offset: .45 },
-    { transform: `translate(${x1}px, ${y1}px) scale(.8)` },
-  ], { duration: 700, easing: 'cubic-bezier(.4,.1,.6,1)' });
-  anim.onfinish = () => { drop.remove(); done(); };
+  const clone = src.cloneNode(true);
+  const fly = document.createElement('div');
+  fly.className = 'fly-bottle';
+  fly.style.setProperty('--c', el.style.getPropertyValue('--c'));
+  fly.style.setProperty('--h', '70%');
+  fly.style.width = a.width + 'px'; fly.style.height = a.height + 'px';
+  clone.style.cssText = `width:${a.width}px;height:${a.height}px`;
+  fly.className += ' ' + [...el.classList].find((c) => c.startsWith('shape-'));
+  fly.appendChild(clone);
+  document.body.appendChild(fly);
+  el.classList.add('flying');
+  const x0 = a.left, y0 = a.top;
+  const x1 = b.left + b.width / 2 - a.width / 2, y1 = b.top + b.height * .12 - a.height / 2;
+  const anim = fly.animate([
+    { transform: `translate(${x0}px, ${y0}px) rotate(0deg)` },
+    { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px) rotate(-60deg)`, offset: .45 },
+    { transform: `translate(${x1}px, ${y1}px) rotate(-130deg)`, offset: .75 },
+    { transform: `translate(${x1}px, ${y1 - 10}px) rotate(-150deg)`, opacity: 0 },
+  ], { duration: 950, easing: 'cubic-bezier(.4,.1,.5,1)' });
+  setTimeout(() => { sfx.plop(); splash(); buzz(20); }, 700);
+  anim.onfinish = () => { fly.remove(); el.classList.remove('flying'); done(); };
 }
 
 function splash() {
-  const svg = $('#pot1 .cauldron');
+  const svg = $('#pot .cauldron');
   svg.classList.remove('splash'); void svg.getBoundingClientRect(); svg.classList.add('splash');
   setTimeout(() => svg.classList.remove('splash'), 800);
 }
@@ -314,37 +386,54 @@ function splash() {
 function pour(key) {
   const it = data.items[key];
   const d = ANXIETY.find((x) => x.key === key);
-  const el = jarEl(key);
+  const el = hangEl(key);
   const guess = st.guesses[key];
   let hit = null;
-  if (guess) {
-    st.guessed++;
-    hit = tierOf(it.pct) === guess;
-    if (hit) st.hits++;
-  }
-  st.opened.add(key);
-  el.classList.add('pouring');
+  if (guess) { st.guessed++; hit = tierOf(it.pct) === guess; if (hit) st.hits++; }
+  st.busy = true;
   sfx.cork();
-  setTimeout(() => {
+  flyBottle(el, () => {
+    if (reduced) { sfx.plop(); }
+    st.poured.add(key);
     el.classList.add('poured');
-    flyDrop($('.jar-art', el), d.color, () => {
-      st.poured.add(key);
-      splash(); sfx.plop(); buzz(20);
-      applyBrew();
-      el.classList.remove('pouring');
-      el.setAttribute('aria-label', `${d.ing}, ${it.name} ${it.pct ?? ''}%, 솥에 넣음`);
-      if (hit != null) {
-        const m = document.createElement('span');
-        m.className = 'hitmark ' + (hit ? 'hit' : 'miss');
-        m.textContent = hit ? '✓' : '✕';
-        m.setAttribute('aria-hidden', 'true');
-        el.appendChild(m);
-        setTimeout(() => (hit ? sfx.hit() : sfx.miss()), 250);
-      }
-      updateCounts();
-      setTimeout(() => showIng(key, true), reduced ? 0 : 450);
-    });
-  }, reduced ? 0 : 280);
+    applyBrew();
+    const slot = $(`#trackDrops [data-k="${key}"]`);
+    slot.classList.add('on'); if (hit != null) slot.classList.add(hit ? 'hit' : 'miss');
+    if (hit != null) {
+      const mk = document.createElement('span');
+      mk.className = 'mark ' + (hit ? 'hit' : 'miss'); mk.textContent = hit ? '✓' : '✕'; mk.setAttribute('aria-hidden', 'true');
+      el.appendChild(mk);
+      setTimeout(() => (hit ? sfx.hit() : sfx.miss()), 200);
+    }
+    paintHangs();
+    st.busy = false;
+    showIng(key, true);
+  });
+}
+
+/* ───────── 카드(시트) ───────── */
+const sheet = $('#sheet');
+let afterSheet = null;
+function openSheet(html, smoke = false, onClose = null) {
+  sheet.classList.toggle('smoke', smoke);
+  $('#sheetInner').innerHTML = html;
+  $('#sheetInner').scrollTop = 0;
+  afterSheet = onClose;
+  if (!sheet.open) sheet.showModal();
+  $$('[data-close]', $('#sheetInner')).forEach((b) => b.addEventListener('click', closeSheet));
+  requestAnimationFrame(() => requestAnimationFrame(() => $$('#sheetInner .meter-fill').forEach((f) => { f.style.width = f.dataset.w + '%'; })));
+  const pctEl = $('#sheetInner .s-pct[data-to]');
+  if (pctEl) countUp(pctEl, +pctEl.dataset.to);
+}
+function closeSheet() { if (sheet.open) sheet.close(); }
+sheet.addEventListener('close', () => { const f = afterSheet; afterSheet = null; f && f(); });
+sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+
+function countUp(el, to) {
+  if (reduced) { el.firstChild.nodeValue = to; return; }
+  const t0 = performance.now();
+  const step = (t) => { const p = Math.min(1, (t - t0) / 900); el.firstChild.nodeValue = Math.round(to * (1 - (1 - p) ** 3)); if (p < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
 }
 
 function meterHTML(pct, guess, color) {
@@ -357,35 +446,7 @@ function meterHTML(pct, guess, color) {
     </div>
     <div class="meter-ticks" aria-hidden="true"><span style="left:2%">0</span><span style="left:40%">40</span><span style="left:70%">70</span><span style="left:97%">100</span></div>`;
 }
-
-function countUp(el, to) {
-  if (reduced) { el.firstChild.nodeValue = to; return; }
-  const t0 = performance.now(), dur = 900;
-  const step = (t) => {
-    const p = Math.min(1, (t - t0) / dur);
-    el.firstChild.nodeValue = Math.round(to * (1 - (1 - p) ** 3));
-    if (p < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-function afterOpenSheet() {
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    $('#sheetInner').querySelectorAll('.meter-fill').forEach((f) => { f.style.width = f.dataset.w + '%'; });
-  }));
-  const pctEl = $('#sheetInner .s-pct[data-to]');
-  if (pctEl) countUp(pctEl, +pctEl.dataset.to);
-}
-
-function nextJar(after) {
-  const keys = ANXIETY.map((d) => d.key);
-  const s = keys.indexOf(after);
-  for (let k = 1; k <= keys.length; k++) {
-    const key = keys[(s + k) % keys.length];
-    if (!st.opened.has(key)) return key;
-  }
-  return null;
-}
+const vialHTML = (color, h) => `<span class="vial" style="--c:${color};--h:${h}%"></span>`;
 
 function showIng(key, fresh) {
   const i = ANXIETY.findIndex((d) => d.key === key);
@@ -394,7 +455,7 @@ function showIng(key, fresh) {
   const tier = tierOf(it.pct);
   const guess = st.guesses[key];
   const hit = guess ? tier === guess : null;
-  const nxt = nextJar(key);
+  const left = ANXIETY.filter((x) => !st.poured.has(x.key)).length;
   openSheet(`
     <div class="sheet-grab"></div>
     <div class="s-top">
@@ -409,118 +470,62 @@ function showIng(key, fresh) {
       ${it.pct != null ? `<p class="s-pct" ${fresh ? `data-to="${it.pct}"` : ''}>${fresh ? 0 : it.pct}<small>%</small></p>` : '<p class="s-pct">—</p>'}
     </div>
     ${meterHTML(it.pct, guess, d.color)}
-    ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">내 짐작 <b>${TIER_LABEL[guess]}</b> → 실제 <b>${TIER_LABEL[tier]}</b> · ${hit ? '적중!' : '빗나감'}</p>` : '<p class="verdict none">이 병은 짐작하지 않았어요.</p>'}
+    ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">내 짐작 <b>${TIER_LABEL[guess]}</b> → 실제 <b>${TIER_LABEL[tier]}</b> · ${hit ? '적중!' : '빗나감'}</p>` : ''}
     ${it.status ? `<p class="label-sticker" style="--c:${d.color}">${esc(it.status)}</p>` : ''}
     ${it.desc ? `<p class="s-desc-title">재료 감정서</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
-    <div class="s-actions">
-      <button type="button" class="btn ghost" data-close>닫기</button>
-      ${nxt ? '<button type="button" class="btn primary" data-next>다음 병 붓기</button>' : '<button type="button" class="btn primary" data-go="stir">솥 저으러 가기</button>'}
-    </div>
-  `);
-  afterOpenSheet();
-  const n = $('[data-next]', $('#sheetInner'));
-  if (n) n.addEventListener('click', () => {
-    closeSheet();
-    jarEl(nxt).scrollIntoView({ block: 'center', behavior: smooth() });
-    setTimeout(() => onJar(nxt), reduced ? 0 : 320);
-  });
-  bindGo();
+    <div class="s-actions"><button type="button" class="btn primary" data-close>${fresh && left ? `계속 붓기 (${left}병 남음)` : '닫기'}</button></div>
+  `, false, () => { if (phase === 'brew' && !ANXIETY.some((x) => !st.poured.has(x.key))) setPhase('stir'); });
 }
 
-/* STEP 2 ─ 젓기 */
-function buildOrbs() {
-  const wrap = $('#visions');
-  wrap.innerHTML = '';
-  HIDDEN.forEach((d, i) => {
-    const it = data.items[d.key];
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'orb' + (it ? '' : ' empty');
-    b.dataset.key = d.key;
-    b.setAttribute('role', 'listitem');
-    b.setAttribute('aria-label', `환영 ${pad2(i + 1)} ${d.name}${it ? ', 아직 떠오르지 않음' : ', 기록 없음'}`);
-    b.innerHTML = `
-      <span class="orb-ball" aria-hidden="true"><svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg></span>
-      <span class="orb-name">${esc(d.name)}</span>
-      <span class="orb-pct">${it && it.pct != null ? it.pct + '%' : ''}</span>
-      <span class="orb-state">${it ? '연기 속에 숨어 있음' : '보이지 않음'}</span>`;
-    if (!it) st.dev.add(d.key);
-    b.addEventListener('click', () => {
-      if (!it) { toast('AI 답변에 이 항목이 없어요.'); return; }
-      if (st.dev.has(d.key)) showVision(d.key);
-      else toast(stirReady() ? '솥을 저으면 차례로 떠올라요.' : '재료 12병을 먼저 모두 넣어 주세요.');
-    });
-    wrap.appendChild(b);
-  });
-}
-
-const stirReady = () => st && st.opened.size >= 12;
-const stirPot = $('#stirPot');
+/* ───────── 젓기 ───────── */
+const pot = $('#pot');
 const ringFg = $('#ringFg');
 const TURN = Math.PI * 2 * 1.15;
-
 function setLadle(a) {
   const hx = 110 + 50 * Math.cos(a), hy = 80 + 8 * Math.sin(a);
-  $('#ladleHead').setAttribute('cx', hx.toFixed(1));
-  $('#ladleHead').setAttribute('cy', hy.toFixed(1));
-  const s = $('#ladleStick');
+  const h = $('#ladleHead'), s = $('#ladleStick');
+  h.setAttribute('cx', hx.toFixed(1)); h.setAttribute('cy', hy.toFixed(1));
   s.setAttribute('x1', hx.toFixed(1)); s.setAttribute('y1', hy.toFixed(1));
   s.setAttribute('x2', (hx * .55 + 160 * .45).toFixed(1)); s.setAttribute('y2', '-14');
 }
 setLadle(0);
-function setRing(p) { ringFg.style.strokeDashoffset = String(100 - Math.min(1, p) * 100); }
+const setRing = (p) => { ringFg.style.strokeDashoffset = String(100 - Math.min(1, p) * 100); };
+const nextVision = () => HIDDEN.find((d) => data.items[d.key] && !st.dev.has(d.key));
 
-let stirring = false, lastA = 0, lastSwish = 0;
-const angleOf = (e) => {
-  const r = stirPot.getBoundingClientRect();
-  return Math.atan2((e.clientY - (r.top + r.height * .55)) * 2.2, e.clientX - (r.left + r.width / 2));
-};
-stirPot.addEventListener('pointerdown', (e) => {
-  if (!st) return;
-  if (!stirReady()) { toast('재료 12병을 먼저 모두 넣어 주세요.'); return; }
-  if (!nextVision()) { toast('모든 환영을 불러냈어요.'); return; }
+let stirring = false, lastA = 0, lastSwish = 0, summoning = false;
+const angleOf = (e) => { const r = pot.getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * .45)) * 2.2, e.clientX - (r.left + r.width / 2)); };
+pot.addEventListener('pointerdown', (e) => {
+  if (phase === 'brew') { toast('재료를 모두 부은 뒤에 저을 수 있어요.'); return; }
+  if (phase !== 'stir' || summoning) return;
   stirring = true; lastA = angleOf(e);
-  try { stirPot.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
+  try { pot.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
 });
-stirPot.addEventListener('pointermove', (e) => {
+pot.addEventListener('pointermove', (e) => {
   if (!stirring) return;
   const a = angleOf(e);
   let d = a - lastA;
   if (d > Math.PI) d -= Math.PI * 2;
   if (d < -Math.PI) d += Math.PI * 2;
-  lastA = a;
-  st.acc += Math.abs(d);
-  setLadle(a);
-  setRing(st.acc / TURN);
+  lastA = a; st.acc += Math.abs(d);
+  setLadle(a); setRing(st.acc / TURN);
   if (st.acc - lastSwish > .7) { lastSwish = st.acc; sfx.swish(Math.min(1, st.acc / TURN)); buzz(4); }
   if (st.acc >= TURN) { st.acc = 0; lastSwish = 0; setRing(0); summon(); }
 });
 const endStir = () => { stirring = false; };
-stirPot.addEventListener('pointerup', endStir);
-stirPot.addEventListener('pointercancel', endStir);
-stirPot.addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter' && e.key !== ' ') return;
+pot.addEventListener('pointerup', endStir);
+pot.addEventListener('pointercancel', endStir);
+pot.addEventListener('keydown', (e) => {
+  if ((e.key !== 'Enter' && e.key !== ' ') || phase !== 'stir' || summoning) return;
   e.preventDefault();
-  if (!st) return;
-  if (!stirReady()) { toast('재료 12병을 먼저 모두 넣어 주세요.'); return; }
-  if (!nextVision()) { toast('모든 환영을 불러냈어요.'); return; }
   const t0 = performance.now();
-  const spin = (t) => {
-    const p = Math.min(1, (t - t0) / 700);
-    setLadle(p * Math.PI * 2); setRing(p);
-    if (p < 1) requestAnimationFrame(spin); else { setRing(0); summon(); }
-  };
+  const spin = (t) => { const p = Math.min(1, (t - t0) / 700); setLadle(p * Math.PI * 2); setRing(p); if (p < 1) requestAnimationFrame(spin); else { setRing(0); summon(); } };
   requestAnimationFrame(spin);
 });
 
-function nextVision() { return HIDDEN.find((d) => data.items[d.key] && !st.dev.has(d.key)); }
-
-let summoning = false;
 function summon() {
   const d = nextVision();
   if (!d || summoning) return;
-  summoning = true;
-  stirring = false;
+  summoning = true; stirring = false;
   const rise = $('#visionRise');
   rise.innerHTML = `<svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg>`;
   rise.classList.remove('go'); void rise.offsetWidth; rise.classList.add('go');
@@ -528,12 +533,7 @@ function summon() {
   setTimeout(() => {
     summoning = false;
     st.dev.add(d.key);
-    const el = $(`.orb[data-key="${d.key}"]`);
-    const it = data.items[d.key];
-    el.classList.add('dev');
-    $('.orb-state', el).textContent = d.key === 'attach' && it.types?.length ? it.types.join('·') : d.vision;
-    el.setAttribute('aria-label', `${d.name} 떠오름. 눌러서 보기`);
-    updateCounts();
+    $(`#trackStars [data-k="${d.key}"]`).classList.add('on');
     showVision(d.key);
   }, reduced ? 0 : 900);
 }
@@ -542,10 +542,11 @@ function showVision(key) {
   const i = HIDDEN.findIndex((d) => d.key === key);
   const d = HIDDEN[i];
   const it = data.items[key];
-  const left = nextVision();
+  const left = HIDDEN.filter((x) => !st.dev.has(x.key)).length;
   const quad = key === 'attach'
     ? `<div class="quad" role="img" aria-label="애착 유형: ${esc((it.types || []).join(', ') || it.tag || '판독')}">${ATTACH_TYPES.map((t) => `<span class="${(it.types || []).includes(t) ? 'on' : ''}">${t}</span>`).join('')}</div>`
     : '';
+  const ag = st.attachGuess;
   openSheet(`
     <div class="sheet-grab"></div>
     <div class="s-top">
@@ -558,100 +559,54 @@ function showVision(key) {
     </div>
     ${meterHTML(it.pct, null, null)}
     ${quad}
-    ${key === 'attach' && st.attachGuess ? `<p class="verdict ${(it.types || []).includes(st.attachGuess) ? 'hit' : 'miss'}">내 짐작 <b>${esc(st.attachGuess)}</b> · ${(it.types || []).includes(st.attachGuess) ? '적중!' : '빗나감'}</p>` : ''}
+    ${key === 'attach' && ag ? `<p class="verdict ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">내 짐작 <b>${esc(ag)}</b> · ${(it.types || []).includes(ag) ? '적중!' : '빗나감'}</p>` : ''}
     ${key === 'attach' && it.tag && !(it.types || []).length ? `<p class="s-hint">${esc(it.tag)}</p>` : ''}
     ${it.status ? `<p class="label-sticker">${esc(it.status)}</p>` : ''}
     ${it.desc ? `<p class="s-desc-title">연기가 보여 준 것</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
-    <div class="s-actions">
-      <button type="button" class="btn ghost" data-close>${left ? '계속 젓기' : '닫기'}</button>
-      ${left ? '' : '<button type="button" class="btn primary" data-go="seal">봉랍 보러 가기</button>'}
-    </div>
-  `, true);
-  afterOpenSheet();
-  bindGo();
+    <div class="s-actions"><button type="button" class="btn primary" data-close>${left ? `계속 젓기 (${left}개 남음)` : '닫기'}</button></div>
+  `, true, () => { if (phase === 'stir' && !nextVision()) setPhase('seal'); });
 }
 
-/* STEP 3 ─ 봉랍 */
-const sealBox = $('#sealBox');
-function resetSeal() {
-  sealBox.dataset.state = 'locked';
-  sealBox.dataset.hits = '0';
-  st.seal = 'locked'; st.knocks = 0;
-  $('#tapHint').textContent = '봉랍을 세 번 두드리세요';
-  $('#deepTitle').textContent = '';
-  $('#deepBody').textContent = '';
-  const old = $('#scroll .btn'); if (old) old.remove();
-}
-
-function updateCounts() {
-  const realPoured = ANXIETY.filter((d) => data.items[d.key] && st.poured.has(d.key)).length;
-  $('#openCount').textContent = realPoured;
-  $('#hitCount').textContent = st.hits;
-  const pills = st.opened.size, films = st.dev.size;
-  $('#devCount').textContent = HIDDEN.filter((d) => data.items[d.key] && st.dev.has(d.key)).length;
-  $('#lkPills').textContent = pills; $('#lkFilms').textContent = films;
-  $('#lkPillBar').style.width = (pills / 12 * 100) + '%';
-  $('#lkFilmBar').style.width = (films / 6 * 100) + '%';
-  const ready = stirReady();
-  stirPot.setAttribute('aria-disabled', String(!ready));
-  $('#stirHint').textContent = !ready
-    ? `재료 12병을 모두 넣으면 저을 수 있어요. (${pills}/12)`
-    : nextVision() ? '솥 안을 빙글빙글 저어 주세요. 초록 고리가 차면 환영이 떠오릅니다.' : '모든 환영을 불러냈어요.';
-  if (ready && !st.stirToast) {
-    st.stirToast = true;
-    setTimeout(() => toast('재료가 모두 들어갔어요. STEP 2에서 솥을 저어 보세요.'), 1400);
-  }
-  if (st.seal === 'locked' && pills >= 12 && films >= 6) {
-    st.seal = 'ready'; sealBox.dataset.state = 'ready';
-    setTimeout(() => toast('봉랍이 물러졌어요. STEP 3에서 두드려 깨 보세요.'), 1200);
-  }
-}
-
-$('#goNext').addEventListener('click', () => {
-  const k = ANXIETY.find((d) => !st.opened.has(d.key));
-  if (k) { jarEl(k.key).scrollIntoView({ block: 'center', behavior: smooth() }); return; }
-  $('#stir').scrollIntoView({ block: 'start', behavior: smooth() });
-});
-
-$('#flaskBtn').addEventListener('click', () => {
-  if (!st) return;
-  if (st.seal === 'locked') { toast('아직 봉랍이 단단해요. 재료와 환영을 모두 확인해 주세요.'); return; }
-  if (st.seal !== 'ready') return;
+/* ───────── 봉랍 ───────── */
+const flaskBtn = $('#flaskBtn');
+flaskBtn.addEventListener('click', () => {
+  if (phase !== 'seal') return;
   st.knocks++;
-  sealBox.dataset.hits = String(Math.min(2, st.knocks));
-  sealBox.classList.remove('knock'); void sealBox.offsetWidth; sealBox.classList.add('knock');
+  flaskBtn.dataset.hits = String(Math.min(2, st.knocks));
+  flaskBtn.classList.remove('knock'); void flaskBtn.offsetWidth; flaskBtn.classList.add('knock');
   if (st.knocks < 3) {
     sfx.knock(); buzz(15);
-    $('#tapHint').textContent = st.knocks === 1 ? '금이 갔어요. 한 번 더!' : '거의 다 됐어요. 마지막 한 번!';
+    say(st.knocks === 1 ? '금이 갔다냥! 한 번 더.' : '거의 다 됐어… 마지막 한 번!');
     return;
   }
-  openSeal();
+  flaskBtn.classList.add('open');
+  sfx.crack(); buzz(50);
+  $('#trackSeal i').classList.add('on');
+  setTimeout(openScroll, reduced ? 0 : 700);
 });
 
-function openSeal() {
-  st.seal = 'open'; sealBox.dataset.state = 'open';
-  sfx.crack(); buzz(50);
+const scrollDlg = $('#scrollDlg');
+function openScroll() {
   const dp = data.deepest;
-  const title = dp ? dp.title : '';
-  const body = dp ? dp.body : 'AI 답변에서 가장 깊은 불안을 찾지 못했어요. 답변 끝에 [DEEPEST ANXIETY] 줄을 넣어 다시 받아 보세요.';
-  $('#deepTitle').textContent = title ? `“${title}”` : '';
-  setTimeout(() => $('#scroll').scrollIntoView({ block: 'nearest', behavior: smooth() }), reduced ? 0 : 900);
-  typeText($('#deepBody'), body, () => {
-    const btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'btn primary';
-    btn.style.cssText = 'margin-top:18px;width:100%';
-    btn.textContent = '레시피로 기록하기';
-    btn.addEventListener('click', () => { btn.remove(); writeRecipe(); });
-    $('.scroll-paper').appendChild(btn);
-  });
+  $('#deepTitle').textContent = dp && dp.title ? `“${dp.title}”` : '';
+  $('#toRecipe').hidden = true;
+  scrollDlg.showModal();
+  typeText($('#deepBody'), dp ? dp.body : 'AI 답변에서 가장 깊은 불안을 찾지 못했어요. 답변 끝에 [DEEPEST ANXIETY] 줄을 넣어 다시 받아 보세요.', () => { $('#toRecipe').hidden = false; });
 }
+$('#toRecipe').addEventListener('click', () => { scrollDlg.close(); });
+scrollDlg.addEventListener('close', () => {
+  if (phase !== 'seal') return;
+  writeRecipe();
+  setPhase('done');
+  openBook('recipe');
+});
 
 function typeText(el, text, done) {
   if (reduced) { el.textContent = text; done(); return; }
   el.textContent = ''; el.classList.add('typing');
   let i = 0, skip = false;
-  const chars = [...text];
   const paper = $('.scroll-paper');
+  const chars = [...text];
   const onSkip = () => { skip = true; };
   paper.addEventListener('click', onSkip, { once: true });
   const tick = () => {
@@ -660,27 +615,21 @@ function typeText(el, text, done) {
     if (i < chars.length) setTimeout(tick, /[.,!?\n]/.test(chars[i - 1]) ? 180 : 32);
     else { el.classList.remove('typing'); paper.removeEventListener('click', onSkip); done(); }
   };
-  setTimeout(tick, 1500);
+  setTimeout(tick, 1100);
 }
 
-/* STEP 4 ─ 레시피 */
+/* ───────── 레시피 ───────── */
 let lastModel = null;
+function today() { const d = new Date(); return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`; }
 function writeRecipe() {
   lastModel = recipeModel({ data, npc, pc, date: today(), moon: moonPhase(), brew, guessBrew: st.guessBrew, guesses: st.guesses, attachGuess: st.attachGuess, guessed: st.guessed, hits: st.hits });
-  const sec = $('#recipeStep');
-  sec.hidden = false;
-  const r = $('#recipe');
-  r.innerHTML = recipeHTML(lastModel);
-  r.style.animation = 'none'; void r.offsetWidth; r.style.animation = '';
+  $('#recipe').innerHTML = recipeHTML(lastModel);
   sfx.quill();
-  sec.scrollIntoView({ behavior: smooth(), block: 'start' });
 }
-
 $('#saveImg').addEventListener('click', async () => {
-  if (!lastModel) return;
+  if (!lastModel) { toast('아직 완성된 물약이 없어요.'); return; }
   try { await document.fonts.ready; } catch { /* 무시 */ }
-  const c = recipeCanvas(lastModel);
-  c.toBlob((blob) => {
+  recipeCanvas(lastModel).toBlob((blob) => {
     if (!blob) { toast('이미지를 만들지 못했어요.'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -690,49 +639,32 @@ $('#saveImg').addEventListener('click', async () => {
     toast('레시피 카드를 저장했어요.');
   }, 'image/png');
 });
-
 $('#restart').addEventListener('click', () => {
-  $('#room').hidden = true; $('#intake').hidden = false;
-  st = null; applyBrew();
-  G = { g: {}, attach: null, sealed: false }; saveGuess(); paintGuess();
+  book.close();
+  data = null; st = null; lastModel = null;
+  G = { g: {}, attach: null }; saveGuess();
   rxText.value = ''; store.set('aa.text', '');
-  window.scrollTo({ top: 0 });
-  toast('새 의뢰예요. 이번에도 먼저 짐작해 보세요.');
+  $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty'); $('.mark', h)?.remove(); });
+  $('#trackDrops').innerHTML = ''; $('#trackStars').innerHTML = ''; $('#trackSeal i').classList.remove('on');
+  flaskBtn.classList.remove('open', 'knock'); flaskBtn.dataset.hits = '0';
+  $('#vialReal').style.setProperty('--v', 'transparent');
+  setPhase('title');
+  paintGuess(); paintWho();
 });
 
-/* ───────── 시트 ───────── */
-const sheet = $('#sheet');
-function openSheet(html, smoke = false) {
-  sheet.classList.toggle('smoke', smoke);
-  $('#sheetInner').innerHTML = html;
-  $('#sheetInner').scrollTop = 0;
-  if (!sheet.open) { if (sheet.showModal) sheet.showModal(); else sheet.setAttribute('open', ''); }
-  $('[data-close]', $('#sheetInner'))?.addEventListener('click', closeSheet);
-}
-function closeSheet() { if (sheet.open) { if (sheet.close) sheet.close(); else sheet.removeAttribute('open'); } }
-sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
-function bindGo() {
-  $('#sheetInner').querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
-    closeSheet();
-    $('#' + b.dataset.go).scrollIntoView({ behavior: smooth(), block: 'start' });
-  }));
-}
-
-// 모바일 바텀시트: 아래로 끌어 닫기
+/* 바텀시트 끌어 닫기 */
 (() => {
   let y0 = null;
   const inner = $('#sheetInner');
   inner.addEventListener('touchstart', (e) => { if (inner.scrollTop <= 0) y0 = e.touches[0].clientY; }, { passive: true });
-  inner.addEventListener('touchmove', (e) => {
-    if (y0 == null) return;
-    const dy = e.touches[0].clientY - y0;
-    if (dy > 0) inner.style.transform = `translateY(${dy}px)`;
-  }, { passive: true });
-  inner.addEventListener('touchend', (e) => {
-    if (y0 == null) return;
-    const dy = e.changedTouches[0].clientY - y0;
-    inner.style.transform = '';
-    y0 = null;
-    if (dy > 110) closeSheet();
-  });
+  inner.addEventListener('touchmove', (e) => { if (y0 == null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) inner.style.transform = `translateY(${dy}px)`; }, { passive: true });
+  inner.addEventListener('touchend', (e) => { if (y0 == null) return; const dy = e.changedTouches[0].clientY - y0; inner.style.transform = ''; y0 = null; if (dy > 110) closeSheet(); });
 })();
+
+/* ───────── 시작 ───────── */
+buildHangs();
+const saved = store.get('aa.phase');
+npc = npcIn.value.trim() || 'NPC';
+paintWho();
+setPhase(saved === 'guess' || saved === 'paste' ? saved : 'title');
+paintGuess();
