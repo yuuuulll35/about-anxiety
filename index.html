@@ -3,191 +3,239 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>속마음 조제실</title>
-  <meta name="description" content="NPC의 무의식적 불안 분석 결과를 붙여 넣으면 알약을 뜯고, 엑스레이를 현상하고, 봉인된 약봉투를 찢으며 읽는 조제실.">
-  <meta property="og:title" content="속마음 조제실">
-  <meta property="og:description" content="불안 12정, 엑스레이 6장, 그리고 개봉 금지 봉투 하나.">
-  <meta name="theme-color" content="#1f6b52">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='22' width='52' height='20' rx='10' transform='rotate(-30 32 32)' fill='%23f2a7b8'/%3E%3Cpath d='M32 32 L44.5 10.4 A10 10 0 0 1 61.8 20.4 L49.3 42 Z' fill='%23d9412b' transform='translate(-9 5)'/%3E%3C/svg%3E">
+  <title>마녀의 속마음 실험실</title>
+  <meta name="description" content="NPC의 무의식적 불안 분석 결과를 붙여 넣으면, 재료 12병을 솥에 붓고, 솥을 저어 환영 6개를 불러내고, 봉랍을 깨 가장 깊은 불안을 읽는 실험실.">
+  <meta property="og:title" content="마녀의 속마음 실험실">
+  <meta property="og:description" content="재료 12병, 환영 6개, 그리고 봉랍으로 막아 둔 마지막 한 방울.">
+  <meta name="theme-color" content="#17112a">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cellipse cx='32' cy='26' rx='24' ry='6' fill='%23b6f36b'/%3E%3Cpath d='M9 26 C7 48 20 58 32 58 C44 58 57 48 55 26 Z' fill='%231e1630'/%3E%3Ccircle cx='24' cy='14' r='4' fill='%23b6f36b'/%3E%3Ccircle cx='36' cy='8' r='3' fill='%23b6f36b'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;700&family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <a class="skip" href="#main">본문으로</a>
+  <div class="stars" aria-hidden="true"></div>
 
   <header class="sign">
     <div class="sign-inner">
-      <span class="sign-mark" aria-hidden="true">藥</span>
+      <span class="sign-mark" aria-hidden="true">☾</span>
       <div class="sign-text">
-        <p class="sign-sub">UNSAID PHARMACY · EST. 1997</p>
-        <h1 class="sign-title">속마음 조제실</h1>
+        <p class="sign-sub">HEARTBREW LABORATORY · EST. 1997</p>
+        <h1 class="sign-title">마녀의 속마음 실험실</h1>
       </div>
       <button class="chip sound" id="soundBtn" type="button" aria-pressed="false">
         <span aria-hidden="true">♪</span><span class="sound-label">소리 끔</span>
       </button>
     </div>
-    <div class="awning" aria-hidden="true"></div>
+    <div class="bunting" aria-hidden="true"></div>
   </header>
 
   <main id="main">
-    <!-- ── 접수 ─────────────────────────────── -->
-    <section class="screen intake" id="intake" aria-labelledby="intakeTitle">
-      <div class="paper rx-form">
-        <div class="rx-head">
-          <p class="stamp-small">처방전 접수</p>
-          <h2 id="intakeTitle">마음 처방전을 맡겨 주세요</h2>
-          <p class="lead">AI에게 OOC 분석을 받고, 그 답변을 통째로 붙여 넣으면 약을 지어 드립니다.</p>
+    <!-- ── 의뢰 접수 ─────────────────────────────── -->
+    <section class="screen intake" id="intake" aria-label="의뢰 접수">
+      <ol class="flow-nav" aria-label="진행 순서">
+        <li><a href="#pGuess"><b>1</b>짐작하기</a></li>
+        <li><a href="#pOoc"><b>2</b>주문서 보내기</a></li>
+        <li><a href="#pPaste"><b>3</b>결과 붙여넣기</a></li>
+      </ol>
+
+      <!-- 1. 짐작 -->
+      <article class="parch panel" id="pGuess" aria-labelledby="guessTitle">
+        <p class="stamp-small">의뢰 1단계</p>
+        <h2 id="guessTitle">AI가 보기 전에, 당신이 먼저 짐작해 보세요</h2>
+        <p class="lead">NPC 속 불안이 얼마나 진할지 병마다 골라 <b>내가 예상한 물약</b>을 끓여 두면, 나중에 실제 분석 결과와 하나씩 대조해 드려요.</p>
+
+        <div class="field-row">
+          <label class="field">
+            <span>의뢰 대상 <small>NPC</small></span>
+            <input id="npcName" name="npc" maxlength="20" placeholder="예: 서도윤" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>의뢰인 <small>PC</small></span>
+            <input id="pcName" name="pc" maxlength="20" placeholder="선택" autocomplete="off">
+          </label>
         </div>
 
-        <ol class="howto">
-          <li><b>1</b><span>아래 <em>OOC 프롬프트</em>를 복사해 롤플 채팅에 보냅니다.</span></li>
-          <li><b>2</b><span>AI의 답변 전체를 복사합니다. 앞뒤 잡담이 섞여도 괜찮습니다.</span></li>
-          <li><b>3</b><span>여기에 붙여 넣고 <em>조제하기</em>를 누릅니다.</span></li>
-        </ol>
+        <div class="guess-lab" id="guessLab">
+          <div class="pot pot-mini" id="pot0"></div>
+          <div class="guess-lab-info">
+            <p class="brew-name" id="guessBrewName">아직 맹물</p>
+            <span class="counter dark"><b id="guessCount">0</b>/12 짐작</span>
+          </div>
+        </div>
+        <p class="guess-howto">병을 누를 때마다 <em>옅음 → 보통 → 진함 → 비움</em> 순서로 바뀌어요.</p>
+        <div class="shelf guess-shelf" id="guessShelf" role="list"></div>
+
+        <fieldset class="attach-pick" id="attachPick">
+          <legend>애착 유형도 하나 골라 볼까요? <small>선택</small></legend>
+        </fieldset>
 
         <div class="row-btns">
-          <button class="btn ghost" id="copyPrompt" type="button">OOC 프롬프트 복사</button>
-          <button class="btn ghost" id="loadSample" type="button">예시 처방 보기</button>
+          <button class="btn primary" id="sealGuess" type="button">짐작 봉인하고 주문서 받기</button>
+          <button class="btn ghost" id="clearGuess" type="button">짐작 지우기</button>
         </div>
+        <p class="fineprint dark">짐작은 이 브라우저에 저장돼요. 채팅 탭에 다녀와도 그대로 남아 있습니다.</p>
+      </article>
 
+      <!-- 2. 주문서 -->
+      <article class="parch panel" id="pOoc" aria-labelledby="oocTitle">
+        <p class="stamp-small">의뢰 2단계</p>
+        <h2 id="oocTitle">주문서를 롤플 채팅에 보내세요</h2>
+        <ol class="howto">
+          <li><b>1</b><span>아래 버튼으로 <em>주문서(OOC)</em>를 복사합니다.</span></li>
+          <li><b>2</b><span>롤플 채팅에 그대로 보내고, AI의 답변 전체를 복사합니다.</span></li>
+          <li><b>3</b><span>이 페이지로 돌아와 3단계에 붙여 넣습니다.</span></li>
+        </ol>
+        <button class="btn primary wide" id="copyPrompt" type="button">주문서(OOC) 복사하기</button>
+      </article>
+
+      <!-- 3. 붙여넣기 -->
+      <article class="parch panel" id="pPaste" aria-labelledby="pasteTitle">
+        <p class="stamp-small">의뢰 3단계</p>
+        <h2 id="pasteTitle">AI의 답변을 솥에 넣어 주세요</h2>
         <form id="rxForm" class="fields" novalidate>
-          <div class="field-row">
-            <label class="field">
-              <span>환자 <small>NPC</small></span>
-              <input id="npcName" name="npc" maxlength="20" placeholder="자동 인식" autocomplete="off">
-            </label>
-            <label class="field">
-              <span>보호자 <small>PC</small></span>
-              <input id="pcName" name="pc" maxlength="20" placeholder="선택" autocomplete="off">
-            </label>
-          </div>
+          <p class="guess-status" id="guessStatus"></p>
           <label class="field">
-            <span>처방 내용 <small>AI 답변 붙여넣기</small></span>
+            <span>재료 목록 <small>AI 답변 붙여넣기</small></span>
             <textarea id="rxText" name="rx" rows="9" placeholder="* 건강 염려도 72%&#10;   * 상태값: …&#10;   * 설명: …"></textarea>
           </label>
           <p class="form-msg" id="formMsg" role="alert" aria-live="polite"></p>
-          <button class="btn primary big" type="submit">조제하기</button>
+          <button class="btn primary big" type="submit">솥에 불 지피기</button>
+          <button class="btn ghost" id="loadSample" type="button">예시 의뢰로 체험하기</button>
         </form>
-      </div>
+      </article>
       <p class="fineprint">붙여 넣은 내용은 이 브라우저 안에서만 읽고, 어디에도 보내지 않습니다.</p>
     </section>
-
-    <!-- ── 조제실 ───────────────────────────── -->
-    <section class="screen room" id="room" hidden aria-label="조제 결과">
-      <div class="envelope-ticket paper">
+    <!-- ── 실험실 ───────────────────────────── -->
+    <section class="screen room" id="room" hidden aria-label="실험 결과">
+      <div class="ticket parch">
         <div class="ticket-l">
-          <p class="stamp-small">약 봉 투</p>
-          <h2 class="ticket-name"><span id="tNpc">NPC</span> <small>님</small></h2>
+          <p class="stamp-small">실험 기록부</p>
+          <h2 class="ticket-name"><span id="tNpc">NPC</span> <small>의 속마음</small></h2>
           <dl class="ticket-meta">
-            <div><dt>보호자</dt><dd id="tPc">—</dd></div>
-            <div><dt>조제일</dt><dd id="tDate">—</dd></div>
-            <div><dt>조제약사</dt><dd>무의식</dd></div>
+            <div><dt>의뢰인</dt><dd id="tPc">—</dd></div>
+            <div><dt>실험일</dt><dd id="tDate">—</dd></div>
+            <div><dt>담당 마녀</dt><dd>무의식</dd></div>
           </dl>
         </div>
-        <div class="ticket-r" aria-hidden="true">
-          <div class="dose-table">
-            <span>아침</span><span>점심</span><span>저녁</span><span>자기 전</span>
-            <i></i><i></i><i></i><i class="on"></i>
-          </div>
-          <p class="ticket-note">자기 전, 혼자 있을 때 복용</p>
+        <div class="ticket-r">
+          <p class="moon" id="tMoon" aria-hidden="true">🌕</p>
+          <p class="ticket-note">오늘의 달 · <b id="tMoonLabel">보름달</b></p>
         </div>
       </div>
 
-      <!-- STEP 1 블리스터 -->
-      <section class="step pack-step" id="pack" aria-labelledby="packTitle">
+      <!-- STEP 1 재료 넣기 -->
+      <section class="step brew-step" id="brew" aria-labelledby="brewTitle">
         <header class="step-head">
           <p class="step-no">STEP 1</p>
-          <h3 id="packTitle">의식 아래 불안 <em>12정</em></h3>
-          <p class="step-desc">칸을 누르면 수치를 먼저 짐작해 볼 수 있어요. 짐작한 뒤 은박이 찢어집니다.</p>
+          <h3 id="brewTitle">의식 아래 불안, <em>재료 12병</em></h3>
+          <p class="step-desc">병을 눌러 솥에 부으면, 당신의 짐작과 실제 농도를 하나씩 대조해 드려요.</p>
         </header>
-        <div class="pack-bar">
-          <span class="counter"><b id="openCount">0</b>/12 개봉</span>
-          <span class="counter"><b id="hitCount">0</b> 적중</span>
-          <label class="chip toggle"><input type="checkbox" id="guessToggle" checked> 짐작하고 뜯기</label>
+        <div class="brew-layout">
+          <div class="pot-dock" id="potDock">
+            <div class="pot" id="pot1"></div>
+            <div class="pot-info">
+              <p class="brew-name" id="brewColorName">아직 맹물</p>
+              <span class="counter"><b id="openCount">0</b>/12 투입</span>
+              <span class="counter"><b id="hitCount">0</b> 적중</span>
+            </div>
+          </div>
+          <div class="shelf" id="shelf" role="list"></div>
         </div>
-        <div class="blister" id="blister" role="list"></div>
         <p class="legend" aria-hidden="true">
-          <span class="lg low"></span>낮음 0–39 <span class="lg mid"></span>중간 40–69 <span class="lg high"></span>높음 70–100
+          <span class="lg low"></span>옅음 0–39 <span class="lg mid"></span>보통 40–69 <span class="lg high"></span>진함 70–100
         </p>
       </section>
 
-      <!-- STEP 2 엑스레이 -->
-      <section class="step xray-step" id="xray" aria-labelledby="xrayTitle">
+      <!-- STEP 2 젓기 -->
+      <section class="step stir-step" id="stir" aria-labelledby="stirTitle">
         <header class="step-head">
           <p class="step-no">STEP 2</p>
-          <h3 id="xrayTitle">본인도 모르는 <em>엑스레이 6장</em></h3>
-          <p class="step-desc">라이트박스를 켜고, 필름을 길게 눌러 현상하세요.</p>
+          <h3 id="stirTitle">솥을 저어 <em>환영 6개</em> 불러내기</h3>
+          <p class="step-desc">솥 안을 손가락으로 빙글빙글 저으세요. 한 바퀴 남짓 돌릴 때마다 연기 속에서 본인도 모르는 마음이 떠오릅니다.</p>
         </header>
-        <div class="lightbox-ctl">
-          <button class="switch" id="lightSwitch" type="button" role="switch" aria-checked="false">
-            <span class="switch-knob" aria-hidden="true"></span>
-            <span class="switch-label">라이트박스 <b>OFF</b></span>
-          </button>
-          <span class="counter dark"><b id="devCount">0</b>/6 현상</span>
+        <div class="stir-stage">
+          <div class="stir-pot" id="stirPot" tabindex="0" role="button" aria-label="솥 젓기. 손가락으로 원을 그리거나 Enter">
+            <svg class="stir-ring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47" pathLength="100"/><circle class="ring-fg" id="ringFg" cx="50" cy="50" r="47" pathLength="100"/></svg>
+            <div class="pot" id="pot2"></div>
+            <div class="vision-rise" id="visionRise" aria-hidden="true"></div>
+          </div>
+          <p class="stir-hint" id="stirHint">재료 12병을 모두 넣으면 저을 수 있어요.</p>
+          <span class="counter"><b id="devCount">0</b>/6 환영</span>
         </div>
-        <div class="lightbox" id="lightbox">
-          <div class="films" id="films" role="list"></div>
-        </div>
+        <div class="visions" id="visions" role="list"></div>
       </section>
 
-      <!-- STEP 3 봉인 -->
+      <!-- STEP 3 봉랍 -->
       <section class="step seal-step" id="seal" aria-labelledby="sealTitle">
         <header class="step-head">
           <p class="step-no">STEP 3</p>
-          <h3 id="sealTitle">복용 주의 · <em>개봉 금지</em></h3>
-          <p class="step-desc">본인조차 인정하기 싫어하는 가장 깊은 불안이 들어 있습니다.</p>
+          <h3 id="sealTitle">봉랍으로 막아 둔 <em>마지막 한 방울</em></h3>
+          <p class="step-desc">본인조차 인정하기 싫어하는 가장 깊은 불안이 병 속에 있습니다.</p>
         </header>
-        <div class="kraft" id="kraft" data-state="locked">
-          <div class="kraft-flap" aria-hidden="true"></div>
-          <div class="tear-strip" id="tearStrip">
-            <div class="tear-track" aria-hidden="true"></div>
-            <button class="tear-tab" id="tearTab" type="button" aria-label="봉투 뜯기. 오른쪽으로 끌거나 Enter">
-              <span aria-hidden="true">✂</span>
-            </button>
-            <span class="tear-hint">← 여기를 잡고 끝까지 →</span>
-          </div>
-          <div class="kraft-body">
-            <p class="kraft-stamp" aria-hidden="true">복용<br>주의</p>
-            <p class="kraft-to"><span id="kNpc">NPC</span> 님 귀하</p>
-            <div class="lockbox" id="lockbox">
-              <p class="lock-ico" aria-hidden="true">🔒</p>
-              <p class="lock-msg">알약 12정과 필름 6장을 모두 확인하면 봉인이 풀립니다.</p>
-              <div class="lock-bars">
-                <span>알약 <b id="lkPills">0</b>/12</span><i><u id="lkPillBar"></u></i>
-                <span>필름 <b id="lkFilms">0</b>/6</span><i><u id="lkFilmBar"></u></i>
-              </div>
-              <button class="btn ghost small" id="goNext" type="button">남은 칸으로 가기</button>
+        <div class="seal-box" id="sealBox" data-state="locked">
+          <button class="flask-btn" id="flaskBtn" type="button" aria-label="봉랍 두드리기. 세 번 두드리면 깨집니다">
+            <svg class="flask" viewBox="0 0 200 270" aria-hidden="true">
+              <defs><clipPath id="flaskClip"><circle cx="100" cy="182" r="70"/></clipPath></defs>
+              <rect class="f-neck" x="78" y="40" width="44" height="80" rx="6"/>
+              <circle class="f-body" cx="100" cy="182" r="74"/>
+              <g clip-path="url(#flaskClip)">
+                <path class="f-liquid" d="M20 170 Q60 158 100 170 T180 170 V260 H20 Z"/>
+                <circle class="f-bub b1" cx="80" cy="220" r="5"/><circle class="f-bub b2" cx="118" cy="232" r="4"/><circle class="f-bub b3" cx="98" cy="206" r="3"/>
+              </g>
+              <path class="f-shine" d="M52 160 Q48 200 70 228"/>
+              <rect class="f-cork" x="74" y="18" width="52" height="30" rx="7"/>
+              <g class="wax">
+                <path class="wax-blob" d="M100 22 C122 20 134 32 132 48 C136 64 122 76 104 74 C84 80 66 68 68 50 C62 34 80 20 100 22 Z"/>
+                <path class="wax-drip" d="M76 64 q-4 14 2 18 q6 -4 4 -16 Z M120 68 q2 12 7 12 q4 -6 -2 -14 Z"/>
+                <path class="wax-sigil" d="M100 32 L104 44 L116 44 L106 52 L110 64 L100 56 L90 64 L94 52 L84 44 L96 44 Z"/>
+                <path class="crack c1" d="M86 30 L96 44 L90 52"/>
+                <path class="crack c2" d="M126 40 L110 52 L118 66"/>
+                <path class="crack c3" d="M100 74 L102 58 L94 50 L106 40"/>
+              </g>
+            </svg>
+            <span class="tap-hint" id="tapHint">봉랍을 세 번 두드리세요</span>
+          </button>
+          <div class="lockbox" id="lockbox">
+            <p class="lock-msg">재료 12병과 환영 6개를 모두 확인하면 봉랍이 물러집니다.</p>
+            <div class="lock-bars">
+              <span>재료 <b id="lkPills">0</b>/12</span><i><u id="lkPillBar"></u></i>
+              <span>환영 <b id="lkFilms">0</b>/6</span><i><u id="lkFilmBar"></u></i>
             </div>
+            <button class="btn ghost small" id="goNext" type="button">남은 단계로 가기</button>
           </div>
-          <article class="letter" id="letter" aria-live="polite">
-            <p class="letter-label">처방전 원본 · 본인 열람 금지</p>
-            <blockquote class="letter-quote" id="deepTitle"></blockquote>
-            <p class="letter-body" id="deepBody"></p>
-            <p class="letter-sign">— 조제약사 무의식 드림</p>
+          <article class="scroll" id="scroll" aria-live="polite">
+            <span class="scroll-roll top" aria-hidden="true"></span>
+            <div class="scroll-paper">
+              <p class="letter-label">마지막 한 방울 · <span id="kNpc">NPC</span> 본인 열람 금지</p>
+              <blockquote class="letter-quote" id="deepTitle"></blockquote>
+              <p class="letter-body" id="deepBody"></p>
+              <p class="letter-sign">— 담당 마녀 무의식</p>
+            </div>
+            <span class="scroll-roll bottom" aria-hidden="true"></span>
           </article>
         </div>
       </section>
 
-      <!-- STEP 4 영수증 -->
-      <section class="step receipt-step" id="receiptStep" hidden aria-labelledby="rcTitle">
+      <!-- STEP 4 레시피 -->
+      <section class="step recipe-step" id="recipeStep" hidden aria-labelledby="rcTitle">
         <header class="step-head">
           <p class="step-no">STEP 4</p>
-          <h3 id="rcTitle">조제 <em>내역서</em></h3>
+          <h3 id="rcTitle">완성된 <em>물약 레시피</em></h3>
         </header>
-        <div class="printer" aria-hidden="true"><span></span></div>
-        <div class="receipt" id="receipt"></div>
+        <div class="recipe" id="recipe"></div>
         <div class="row-btns center">
-          <button class="btn primary" id="saveImg" type="button">내역서 이미지 저장</button>
-          <button class="btn ghost" id="restart" type="button">새 처방 받기</button>
+          <button class="btn primary" id="saveImg" type="button">레시피 카드 저장</button>
+          <button class="btn ghost" id="restart" type="button">새 의뢰 받기</button>
         </div>
       </section>
     </section>
   </main>
 
   <footer class="foot">
-    <p>속마음 조제실은 롤플레이 캐릭터의 감정을 놀이처럼 읽는 곳입니다. 실제 심리 진단이 아닙니다.</p>
+    <p>마녀의 속마음 실험실은 롤플레이 캐릭터의 감정을 놀이처럼 읽는 곳입니다. 실제 심리 진단이 아닙니다.</p>
   </footer>
 
   <dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
