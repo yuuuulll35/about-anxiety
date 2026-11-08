@@ -233,7 +233,7 @@ button { cursor: pointer; }
 .sheet-grab { width: 44px; height: 5px; border-radius: 4px; background: rgba(46, 32, 20, .25); margin: 0 auto 12px; }
 .sheet.smoke .sheet-inner { background: radial-gradient(100% 70% at 50% 0%, color-mix(in srgb, var(--brew) 45%, #1a1230), #120c20 80%); color: var(--mist); border-color: color-mix(in srgb, var(--brew-l) 60%, var(--line)); }
 .sheet.smoke .sheet-grab { background: rgba(255, 255, 255, .2); }
-.s-no { margin: 0; font-family: var(--f-mono); font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--wax); }
+.s-no { margin: 0; font-family: var(--f-body); font-size: 12px; font-weight: 700; color: var(--wax); }
 .sheet.smoke .s-no { color: var(--lime); }
 .s-title { margin: 4px 0 2px; font-family: var(--f-disp); font-weight: 400; font-size: 28px; line-height: 1.15; word-break: keep-all; }
 .s-sub { margin: 0; font-size: 13px; color: var(--parch-ink-2); }
@@ -273,7 +273,7 @@ button { cursor: pointer; }
 .sheet.smoke .label-sticker { background: rgba(255, 255, 255, .06); color: var(--parch); border-color: var(--brew-l); box-shadow: 0 0 16px color-mix(in srgb, var(--brew-l) 40%, transparent); }
 .sheet.smoke .label-sticker::before { content: "환영"; background: var(--lime); color: var(--line); }
 .s-desc { margin: 0; white-space: pre-line; word-break: keep-all; line-height: 1.75; }
-.s-desc-title { margin: 14px 0 4px; font-family: var(--f-mono); font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--parch-ink-2); }
+.s-desc-title { margin: 14px 0 4px; font-family: var(--f-body); font-size: 12px; font-weight: 700; color: var(--parch-ink-2); }
 .sheet.smoke .s-desc-title { color: var(--mist-2); }
 .s-actions { display: flex; gap: 8px; margin-top: 18px; }
 .s-actions .btn { flex: 1; }
@@ -601,16 +601,6 @@ body { background: #0f0b1d; }
 /* 선반의 병들이 왼쪽부터 차례로 톡 튀며 반짝 */
 .stage.gd-on .hang.set .bottle { animation: gdwave .5s ease-out var(--wave, 0ms) both; }
 @keyframes gdwave { 40% { transform: translateY(-8px) scale(1.08); filter: drop-shadow(0 0 12px var(--c)); } }
-/* 한 번에 젓기: 환영 6개 모아 보기 */
-.vis-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
-.vis-list li { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid color-mix(in srgb, var(--brew-l) 30%, transparent); }
-.vis-list h3 { margin: 2px 0 4px; font-family: var(--f-disp); font-weight: 700; font-size: 18px; line-height: 1.3; color: var(--parch); word-break: keep-all; }
-.vis-list h3 small { font-family: var(--f-body); font-size: 13px; color: var(--lime); margin-left: 2px; }
-.vl-v { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; font-family: var(--f-body); font-size: 11px; vertical-align: 2px; }
-.vl-v.hit { background: #c8fa86; color: #13200a; }
-.vl-v.miss { background: rgba(255, 255, 255, .12); color: var(--mist); }
-.vl-status { margin: 0; font-family: var(--f-serif); font-weight: 700; font-size: 15px; line-height: 1.5; color: var(--parch); word-break: keep-all; }
-.vl-desc { margin: 4px 0 0; font-size: 13px; line-height: 1.6; color: var(--mist-2); word-break: keep-all; }
 
 /* ───────────── 가마솥 (js/cauldron.js) ─────────────
    좌표는 viewBox 400×360 기준 퍼센트: 물약 표면 중심 (50%, 31%), 몸통 바닥 ≈ 90%. */
@@ -701,3 +691,36 @@ body { background: #0f0b1d; }
 }
 .guess-done.stay { animation: gdin .55s cubic-bezier(.2, 1.4, .4, 1) both !important; }
 .guess-done.stay::after { content: "눌러서 레시피 보기 ▸"; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--lime); }
+
+/* ───────────── 숨겨진 마음 모아 보기 (밝은 종이, 항목마다 아이콘 · 이름 · 수치 막대 · 상태값 · 설명) ───────────── */
+.vc-top { margin-bottom: 4px; }
+.vc-kicker { margin: 0; font-size: 13px; font-weight: 700; color: var(--wax); }
+.vc-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.vc { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-top: 1px solid rgba(46, 32, 20, .14); }
+.vc:first-child { border-top: 0; padding-top: 8px; }
+.vc-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: #2b2033; }
+.vc-icon svg { width: 28px; height: 28px; }
+.vc-icon svg * { fill: none; stroke: var(--gold); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.vc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.vc-head h3 { margin: 0; font-family: var(--f-body); font-size: 17px; font-weight: 700; color: #2b2033; word-break: keep-all; }
+.vc-pct { flex: none; font-family: var(--f-body); font-size: 20px; font-weight: 700; color: #9d2f55; line-height: 1; }
+.vc-pct small { font-size: 12px; margin-left: 1px; }
+.vc-bar { display: block; height: 6px; margin: 8px 0 10px; border-radius: 99px; background: rgba(46, 32, 20, .1); overflow: hidden; }
+.vc-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d86a96, #9d2f55); }
+.vc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 10px; }
+.vc-chip { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #2b2033; color: #fff4d0; }
+.vc-chip.hit { background: #c8fa86; color: #13200a; }
+.vc-chip.miss { background: rgba(46, 32, 20, .1); color: var(--parch-ink-2); }
+.vc-status { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fffaf0; border-left: 3px solid #9d2f55;
+  font-family: var(--f-serif); font-size: 16px; font-weight: 700; line-height: 1.6; color: #2b2033; word-break: keep-all; }
+.vc-desc { margin: 10px 0 0; font-size: 15px; line-height: 1.75; color: #4a3b2c; word-break: keep-all; }
+.vc-actions { position: sticky; bottom: 0; margin: 4px -18px 0; padding: 12px 18px 4px; background: linear-gradient(transparent, var(--parch) 30%); }
+@media (min-width: 600px) { .vc-actions { margin: 4px -26px 0; padding: 12px 26px 4px; } }
+
+/* 재료 카드 넘기기: ◂ 이전 · 다음 병 붓기 ▸ */
+.ing-nav .btn { flex: none; }
+.ing-nav .btn[data-step="1"], .ing-nav .btn[data-close] { flex: 1; }
+.ing-nav .ghost-btn { width: 52px; padding: 0; background: transparent; box-shadow: none; }
+.ing-nav .ghost-btn:disabled { opacity: .3; cursor: default; }
+.ing-nav small { font-size: 12px; font-weight: 600; opacity: .7; margin-left: 4px; }
+.ing-count { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--parch-ink-2); }

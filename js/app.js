@@ -430,8 +430,8 @@ function setPhase(p) {
   if (!['title', 'guess', 'paste'].includes(p)) { $('#sayForm').hidden = true; $('#sayForm').innerHTML = ''; }
   switch (p) {
     case 'brew':
-      say(`${Object.keys(st.guesses).length ? '진짜 레시피 도착! ' : ''}아래 <b>한 번에 붓기</b>를 누르면 내가 다 부어 줄게. 병을 톡 눌러 하나씩 부어도 돼.`);
-      act('한 번에 붓기 ▸', pourAll);
+      say(`${Object.keys(st.guesses).length ? '진짜 레시피 도착! ' : ''}<b>첫 병을 톡</b> 눌러 솥에 부어 봐. 그다음부턴 카드에서 <b>다음 ▸</b>만 누르면 돼.`);
+      act(null);
       hangEl(ANXIETY.find((d) => !st.poured.has(d.key))?.key ?? ANXIETY[0].key).classList.add('coach');
       break;
     case 'stir':
@@ -598,7 +598,8 @@ function applyBrew() {
 }
 
 /* ───────── 붓기 ───────── */
-function flyBottle(el, done, dur = 950) {
+function flyBottle(el, done) {
+  const dur = 950;
   const src = $('.bottle', el);
   const potSvg = $('#pot .cauldron');
   if (reduced) { done(); return; }
@@ -633,55 +634,48 @@ function splash() {
   setTimeout(() => svg.classList.remove('splash'), 800);
 }
 
-/* 한 번에 붓기: 남은 병을 왼쪽부터 차례로 빠르게 붓는다. 재료 카드는 띄우지 않고(부은 병을 누르면 볼 수 있다),
-   다 부으면 맞힌 수를 알려 주고 젓기로 넘어간다. */
-function pourAll() {
-  if (phase !== 'brew' || st.busy || st.auto) return;
-  st.auto = true;
-  act(null);
-  $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
-  say('좋아, 내가 <b>차례로 부을게</b>냥!');
-  const next = () => {
-    const d = ANXIETY.find((x) => data.items[x.key] && !st.poured.has(x.key));
-    if (!d) {
-      st.auto = false;
-      toast(st.guessed ? `다 부었어요! 나만의 물약과 같은 병 ${st.hits}/${st.guessed}` : '다 부었어요!');
-      setPhase('stir');
-      return;
-    }
-    pour(d.key, next);
-  };
-  next();
-}
-
-function pour(key, then = null) {
+/* 붓기: 첫 병은 톡 눌러 날아가는 모습을 보여 주고, 그다음부터는 재료 카드의 [다음 ▸](←→ 키·좌우 스와이프)로
+   다음 병이 바로 솥에 들어가며 카드 내용만 바뀐다. 매번 카드를 닫고 병을 누를 필요가 없다. */
+function markPoured(key) {
   const it = data.items[key];
   const el = hangEl(key);
   const guess = st.guesses[key];
   let hit = null;
   if (guess) { st.guessed++; hit = tierOf(it.pct) === guess; if (hit) st.hits++; }
+  st.poured.add(key);
+  el.classList.add('poured');
+  applyBrew();
+  const slot = $(`#trackDrops [data-k="${key}"]`);
+  slot.classList.add('on'); if (hit != null) slot.classList.add(hit ? 'hit' : 'miss');
+  if (hit != null) {
+    const mk = document.createElement('span');
+    mk.className = 'mark ' + (hit ? 'hit' : 'miss'); mk.textContent = hit ? '✓' : '✕'; mk.setAttribute('aria-hidden', 'true');
+    el.appendChild(mk);
+    setTimeout(() => (hit ? sfx.hit() : sfx.miss()), 200);
+  }
+  paintHangs();
+  $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
+}
+
+function pour(key) {
   st.busy = true;
   sfx.cork();
-  flyBottle(el, () => {
-    if (reduced) { sfx.plop(); }
-    st.poured.add(key);
-    el.classList.add('poured');
-    applyBrew();
-    const slot = $(`#trackDrops [data-k="${key}"]`);
-    slot.classList.add('on'); if (hit != null) slot.classList.add(hit ? 'hit' : 'miss');
-    if (hit != null) {
-      const mk = document.createElement('span');
-      mk.className = 'mark ' + (hit ? 'hit' : 'miss'); mk.textContent = hit ? '✓' : '✕'; mk.setAttribute('aria-hidden', 'true');
-      el.appendChild(mk);
-      setTimeout(() => (hit ? sfx.hit() : sfx.miss()), 200);
-    }
-    paintHangs();
+  flyBottle(hangEl(key), () => {
+    if (reduced) sfx.plop();
+    markPoured(key);
     st.busy = false;
-    $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
-    const nx = ANXIETY.find((d) => !st.poured.has(d.key));
-    if (nx && !st.auto) hangEl(nx.key).classList.add('coach');
-    if (then) setTimeout(then, reduced ? 0 : 60); else showIng(key, true);
-  }, then ? 420 : 950);
+    showIng(key, true);
+  });
+}
+
+/** 카드에서 옆 재료로. 아직 안 부은 병이면 모션 없이 바로 붓는다. */
+const ingKeys = () => ANXIETY.filter((d) => data.items[d.key]).map((d) => d.key);
+function stepIng(key, dir) {
+  const keys = ingKeys();
+  const nk = keys[keys.indexOf(key) + dir];
+  if (!nk) return;
+  if (!st.poured.has(nk)) { sfx.plop(); splash(); buzz(14); markPoured(nk); showIng(nk, true); }
+  else { sfx.tap(); showIng(nk, false); }
 }
 
 /* ───────── 카드(시트) ───────── */
@@ -728,7 +722,12 @@ function showIng(key, fresh) {
   const tier = tierOf(it.pct);
   const guess = st.guesses[key];
   const hit = guess ? tier === guess : null;
-  const left = ANXIETY.filter((x) => !st.poured.has(x.key)).length;
+  const keys = ingKeys();
+  const at = keys.indexOf(key);
+  const prevKey = keys[at - 1], nextKey = keys[at + 1];
+  const left = keys.filter((k) => !st.poured.has(k)).length;
+  const nextLabel = nextKey ? (st.poured.has(nextKey) ? '다음 ▸' : `다음 병 붓기 ▸ <small>${left}병 남음</small>`) : '';
+  const lastBtn = left ? '<button type="button" class="btn primary" data-close>닫기</button>' : '<button type="button" class="btn primary" data-close>다 부었다! 저으러 가기 ▸</button>';
   openSheet(`
     <div class="sheet-grab"></div>
     <div class="s-top">
@@ -747,8 +746,15 @@ function showIng(key, fresh) {
     ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">나만의 물약 <b>${TIER_LABEL[guess]}</b> → 진짜 <b>${TIER_LABEL[tier]}</b> · ${hit ? '똑같다!' : '달랐다'}</p>` : ''}
     ${it.status ? `<p class="label-sticker" style="--c:${d.color}">${esc(it.status)}</p>` : ''}
     ${it.desc ? `<p class="s-desc-title">재료 감정서</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
-    <div class="s-actions"><button type="button" class="btn primary" data-close>${fresh && left ? `계속 붓기 (${left}병 남음)` : '닫기'}</button></div>
-  `, false, () => { if (phase === 'brew' && !ANXIETY.some((x) => !st.poured.has(x.key))) setPhase('stir'); });
+    <div class="s-actions ing-nav">
+      <button type="button" class="btn ghost-btn" data-step="-1" ${prevKey ? '' : 'disabled'} aria-label="이전 재료">◂</button>
+      ${nextKey ? `<button type="button" class="btn primary" data-step="1">${nextLabel}</button>` : lastBtn}
+    </div>
+    <p class="ing-count">${at + 1} / ${keys.length}</p>
+  `, false, () => { if (phase === 'brew' && !ANXIETY.some((x) => data.items[x.key] && !st.poured.has(x.key))) setPhase('stir'); });
+  $$('#sheetInner [data-step]').forEach((b) => b.addEventListener('click', () => stepIng(key, +b.dataset.step)));
+  sheet.dataset.ing = key;
+  ($('#sheetInner [data-step="1"]') || $('#sheetInner [data-close]')).focus({ preventScroll: true });
 }
 
 /* ───────── 젓기 ───────── */
@@ -830,23 +836,32 @@ function showVisionList() {
   const ag = st.attachGuess;
   const rows = HIDDEN.filter((d) => data.items[d.key]).map((d) => {
     const it = data.items[d.key];
-    const i = HIDDEN.indexOf(d);
-    const types = d.key === 'attach' && (it.types || []).length ? it.types.join('·') : '';
-    const verdict = d.key === 'attach' && ag ? ` <span class="vl-v ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">${(it.types || []).includes(ag) ? '짐작 ✓' : `짐작 ${esc(ag)} ✕`}</span>` : '';
-    return `<li>
-      <p class="s-no">환영 ${pad2(i + 1)} · ${esc(d.vision)}</p>
-      <h3>${esc(d.name)}${types ? ` · ${esc(types)}` : ''}${it.pct != null ? ` <small>${it.pct}%</small>` : ''}${verdict}</h3>
-      ${it.status ? `<p class="vl-status">${esc(it.status)}</p>` : ''}
-      ${it.desc ? `<p class="vl-desc">${esc(it.desc)}</p>` : ''}
+    const types = d.key === 'attach' ? (it.types || []) : [];
+    const verdict = d.key === 'attach' && ag
+      ? `<span class="vc-chip ${types.includes(ag) ? 'hit' : 'miss'}">${types.includes(ag) ? '내 짐작 적중' : `내 짐작 ${esc(ag)}`}</span>` : '';
+    return `<li class="vc">
+      <span class="vc-icon" aria-hidden="true"><svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg></span>
+      <div class="vc-body">
+        <div class="vc-head">
+          <h3>${esc(d.name)}</h3>
+          ${it.pct != null ? `<b class="vc-pct">${it.pct}<small>%</small></b>` : ''}
+        </div>
+        ${it.pct != null ? `<span class="vc-bar"><i style="width:${it.pct}%"></i></span>` : ''}
+        ${types.length || verdict ? `<p class="vc-chips">${types.map((t) => `<span class="vc-chip">${esc(t)}</span>`).join('')}${verdict}</p>` : ''}
+        ${it.status ? `<p class="vc-status">${esc(it.status)}</p>` : ''}
+        ${it.desc ? `<p class="vc-desc">${esc(it.desc)}</p>` : ''}
+      </div>
     </li>`;
   }).join('');
   openSheet(`
     <div class="sheet-grab"></div>
-    <p class="s-no">연기 속 환영 · ${st.dev.size}/6</p>
-    <h2 class="s-title" id="sheetTitle">숨겨진 마음</h2>
-    <ol class="vis-list">${rows}</ol>
-    <div class="s-actions"><button type="button" class="btn primary" data-close>봉랍 깨러 가기</button></div>
-  `, true, () => { if (phase === 'stir') setPhase('seal'); });
+    <header class="vc-top">
+      <p class="vc-kicker">연기 속 환영 ${st.dev.size}개</p>
+      <h2 class="s-title" id="sheetTitle">${esc(npc)}의 숨겨진 마음</h2>
+    </header>
+    <ol class="vc-list">${rows}</ol>
+    <div class="s-actions vc-actions"><button type="button" class="btn primary" data-close>봉랍 깨러 가기</button></div>
+  `, false, () => { if (phase === 'stir') setPhase('seal'); });
 }
 
 function summon() {
@@ -988,6 +1003,26 @@ $('#restart').addEventListener('click', () => {
   npc = ''; pc = ''; store.set('aa.npc', ''); store.set('aa.pc', ''); paintWho();
   goStep('name');
 });
+
+/* 재료 카드가 떠 있는 동안 ←→ 키와 좌우 스와이프로도 넘긴다 */
+document.addEventListener('keydown', (e) => {
+  const k = sheet.dataset.ing;
+  if (!k || !sheet.open) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); stepIng(k, 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); stepIng(k, -1); }
+});
+sheet.addEventListener('close', () => { delete sheet.dataset.ing; });
+{
+  let sx = null, sy = null;
+  sheet.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchend', (e) => {
+    const k = sheet.dataset.ing;
+    if (sx == null || !k) return;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    sx = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) stepIng(k, dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
 
 /* 바텀시트 끌어 닫기 */
 (() => {
