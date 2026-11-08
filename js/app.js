@@ -5,7 +5,7 @@ import { OOC_STEPS } from './prompt.js?v=27';
 import { icon, LANG_ICON } from './icons.js?v=40';
 import { cauldronSVG, RIM } from './cauldron.js?v=40';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
-import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=45';
+import { recipeModel, recipeHTML, recipeCanvas, prepareRecipeFonts } from './recipe.js?v=53';
 import { setSound, soundOn, sfx, buzz } from './sound.js?v=44';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -1005,7 +1005,7 @@ function writeRecipe() {
 }
 $('#saveImg').addEventListener('click', async () => {
   if (!lastModel) { toast('아직 완성된 물약이 없어요.'); return; }
-  try { await document.fonts.ready; } catch { /* 무시 */ }
+  try { await document.fonts.ready; await prepareRecipeFonts(lastModel); } catch { /* 무시 */ }
   recipeCanvas(lastModel).toBlob((blob) => {
     if (!blob) { toast('이미지를 만들지 못했어요.'); return; }
     const a = document.createElement('a');
