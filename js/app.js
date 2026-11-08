@@ -6,7 +6,7 @@ import { FILM_ICONS } from './icons.js?v=27';
 import { cauldronSVG, RIM } from './cauldron.js?v=27';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
 import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=27';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=27';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=28';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -59,7 +59,15 @@ function paintSound() {
   $('.sound-label', soundBtn).textContent = soundOn() ? '켬' : '끔';
 }
 soundBtn.addEventListener('click', () => { setSound(!soundOn()); store.set('aa.sound', soundOn() ? '1' : '0'); paintSound(); sfx.tap(); });
-if (store.get('aa.sound') === '1') window.addEventListener('pointerdown', () => { setSound(true); paintSound(); }, { once: true });
+// 소리는 기본으로 켠다(배경음). 브라우저는 첫 터치·클릭 뒤에만 소리를 허락하므로 그때 시작한다. 끈 사람은 끈 채로 둔다.
+{
+  const autoStart = (e) => {
+    if (soundBtn.contains(e.target)) return; // 소리 버튼은 제 할 일(켜기·끄기)만 한다
+    window.removeEventListener('pointerdown', autoStart);
+    if (store.get('aa.sound') !== '0' && !soundOn()) { setSound(true); paintSound(); }
+  };
+  window.addEventListener('pointerdown', autoStart);
+}
 paintSound();
 
 /* 솥·달 */
