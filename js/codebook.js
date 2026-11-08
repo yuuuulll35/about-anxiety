@@ -1,7 +1,7 @@
 // 물약 코드 MUL-XXXX-XXXX-XXXX-XXXX-XXXX
 // 자리 1~12: A01~A12 단계(0~9), 13~18: H01~H06 단계, 19: 사랑의 언어, 20: 임의 문자.
 // 각 자리 표의 index = 단계. 채팅에서는 수치가 보이지 않고 사이트에서만 풀린다.
-import { ANXIETY, HIDDEN } from './items.js';
+import { ANXIETY, HIDDEN } from './items.js?v=20';
 
 export const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // O I L 0 1 제외
 // 모든 자리가 같은 표를 쓴다 (OOC 를 1,500자 안에 넣기 위해)
@@ -44,7 +44,3 @@ export function decode(text) {
   return { levels, fuzzy, type: TYPE_OF[s[18]] || null };
 }
 
-/** OOC 에 넣을 표 */
-export function tableText() {
-  return `${[...ROW].map((c, lv) => `${lv}=${c}`).join(' ')}\n사랑의 언어: ${Object.entries(TYPE_CODE).map(([k, v]) => `${k}=${v}`).join(' ')}`;
-}

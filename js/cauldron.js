@@ -1,61 +1,66 @@
-// 위에서 내려다본 솥. 액체 색은 CSS 변수 --brew / --brew-l / --brew-d 를 따른다.
-// 거품(cb)·김(st)·튀는 방울(sp)·국자(ladle) 클래스와 id 는 app.js 가 쓴다.
+// 가마솥 SVG (살짝 위에서 본 각도). 둥근 몸통 · 다리 · 손잡이 고리 · 아가리의 물약.
+// 물약 색은 CSS 변수 --brew / --brew-l / --brew-d, 차오른 정도는 --lv(0~1).
+// 움직이는 것은 거품·김·튀는 방울·국자뿐이고 필터(blur·drop-shadow)는 쓰지 않는다(매 프레임 다시 그리는 비용).
+export const RIM = { cx: 200, cy: 112, rx: 150, ry: 34 }; // 물약 표면 타원 (국자·젓기 판정에 쓴다)
+
 const BUBBLES = [
-  [150, 128, 9, 0], [236, 150, 7, .7], [190, 168, 11, 1.4], [270, 120, 6, 2.1],
-  [118, 158, 6, 2.6], [215, 112, 8, 3.2], [300, 158, 9, .4], [170, 140, 5, 1.9],
-  [252, 178, 6, 2.9], [132, 118, 5, 3.6],
+  [150, 108, 8, 0], [232, 120, 6, .8], [186, 124, 9, 1.6], [268, 104, 6, 2.3], [122, 118, 5, 2.9], [214, 100, 7, 3.4],
 ];
 
 export function cauldronSVG(id, withLadle = false) {
+  const { cx, cy, rx, ry } = RIM;
   const bub = BUBBLES.map(([x, y, r, d], i) =>
-    `<g class="cb" style="--d:${d}s;--t:${2.4 + (i % 4) * .5}s" transform="translate(${x} ${y})"><circle r="${r}"/><circle class="pop" r="${r}"/></g>`).join('');
+    `<g class="cb" style="--d:${d}s;--t:${2.6 + (i % 3) * .5}s" transform="translate(${x} ${y})"><circle r="${r}"/></g>`).join('');
   return `
-<svg class="cauldron" viewBox="0 0 400 300" aria-hidden="true">
+<svg class="cauldron" viewBox="0 0 400 360" aria-hidden="true">
   <defs>
-    <radialGradient id="liq${id}" cx="46%" cy="40%" r="62%">
+    <radialGradient id="liq${id}" cx="45%" cy="40%" r="65%">
       <stop offset="0" style="stop-color:var(--brew-l)"/>
-      <stop offset=".55" style="stop-color:var(--brew)"/>
+      <stop offset=".6" style="stop-color:var(--brew)"/>
       <stop offset="1" style="stop-color:var(--brew-d)"/>
     </radialGradient>
-    <linearGradient id="iron${id}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4a4166"/>
-      <stop offset=".35" stop-color="#2a2340"/>
-      <stop offset="1" stop-color="#110d1d"/>
+    <radialGradient id="belly${id}" cx="34%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#4a4068"/>
+      <stop offset=".45" stop-color="#241d38"/>
+      <stop offset="1" stop-color="#0b0814"/>
+    </radialGradient>
+    <linearGradient id="rim${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b5180"/>
+      <stop offset="1" stop-color="#1a1428"/>
     </linearGradient>
-    <linearGradient id="belly${id}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#231c38"/>
-      <stop offset="1" stop-color="#0c0915"/>
-    </linearGradient>
-    <clipPath id="clip${id}"><ellipse cx="200" cy="140" rx="158" ry="74"/></clipPath>
+    <radialGradient id="glow${id}" cx="50%" cy="50%" r="50%">
+      <stop offset="0" style="stop-color:var(--brew-l)" stop-opacity=".55"/>
+      <stop offset="1" style="stop-color:var(--brew-l)" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="steam${id}" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="clip${id}"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath>
   </defs>
-  <ellipse class="c-shadow" cx="200" cy="262" rx="200" ry="34"/>
-  <path class="c-belly" d="M12 136 C18 250 382 250 388 136 Z" fill="url(#belly${id})"/>
-  <path class="c-belly-shine" d="M44 176 C70 224 150 240 200 242"/>
-  <g class="c-handle"><ellipse cx="10" cy="142" rx="12" ry="20"/><ellipse cx="390" cy="142" rx="12" ry="20"/></g>
-  <ellipse class="c-rim" cx="200" cy="134" rx="190" ry="98" fill="url(#iron${id})"/>
-  <path class="c-rim-shine" d="M40 108 C90 54 310 54 360 108"/>
-  <ellipse class="c-inner" cx="200" cy="138" rx="168" ry="82"/>
-  <g class="c-glow-wrap"><ellipse class="c-liquid" cx="200" cy="140" rx="158" ry="74" fill="url(#liq${id})"/></g>
+  <ellipse class="c-shadow" cx="200" cy="338" rx="150" ry="14"/>
+  <g class="c-legs"><path d="M108 290 l-14 44 h22 l10 -36 Z"/><path d="M292 290 l14 44 h-22 l-10 -36 Z"/><path d="M190 318 l0 26 h20 l0 -26 Z"/></g>
+  <g class="c-handle"><path d="M38 128 C10 132 8 176 34 186"/><path d="M362 128 C390 132 392 176 366 186"/></g>
+  <path class="c-belly" d="M36 116 C26 220 96 322 200 322 C304 322 374 220 364 116 Z" fill="url(#belly${id})"/>
+  <path class="c-belly-shine" d="M70 160 C70 222 110 270 160 290"/>
+  <ellipse class="c-glow" cx="${cx}" cy="${cy - 6}" rx="${rx + 40}" ry="${ry + 34}" fill="url(#glow${id})"/>
+  <ellipse class="c-rim" cx="${cx}" cy="${cy}" rx="${rx + 18}" ry="${ry + 12}" fill="url(#rim${id})"/>
+  <ellipse class="c-inner" cx="${cx}" cy="${cy + 2}" rx="${rx + 4}" ry="${ry + 3}"/>
+  <ellipse class="c-liquid" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#liq${id})"/>
   <g clip-path="url(#clip${id})">
-    <g transform="translate(200 140) scale(1 .47)">
-      <g class="c-swirl">
-        <path d="M-120 0 C-120 -70 -40 -110 30 -96"/>
-        <path d="M110 30 C96 90 20 120 -50 104"/>
-        <path d="M-60 -30 C-30 -60 30 -60 50 -20"/>
-      </g>
-    </g>
+    <path class="c-swirl" d="M90 ${cy} C110 ${cy - 26} 190 ${cy - 30} 230 ${cy - 12} M300 ${cy + 4} C280 ${cy + 26} 200 ${cy + 30} 160 ${cy + 14}"/>
     <g class="c-bubbles">${bub}</g>
-    <ellipse class="c-sheen" cx="160" cy="112" rx="70" ry="16"/>
+    <ellipse class="c-sheen" cx="160" cy="${cy - 14}" rx="64" ry="9"/>
   </g>
-  ${withLadle ? '<g class="ladle" id="ladle"><line id="ladleStick" x1="270" y1="140" x2="390" y2="-40"/><ellipse id="ladleHead" cx="270" cy="140" rx="16" ry="7"/></g>' : ''}
+  <path class="c-rim-shine" d="M60 ${cy - 22} C110 ${cy - 48} 290 ${cy - 48} 340 ${cy - 22}"/>
+  ${withLadle ? `<g class="ladle" id="ladle"><line id="ladleStick" x1="${cx}" y1="${cy}" x2="390" y2="-40"/><ellipse id="ladleHead" cx="${cx}" cy="${cy}" rx="16" ry="6"/></g>` : ''}
   <g class="c-steam">
-    <ellipse class="st s1" cx="150" cy="110" rx="34" ry="22"/>
-    <ellipse class="st s2" cx="230" cy="100" rx="42" ry="26"/>
-    <ellipse class="st s3" cx="280" cy="124" rx="28" ry="18"/>
+    <ellipse class="st s1" cx="160" cy="${cy - 30}" rx="40" ry="26" fill="url(#steam${id})"/>
+    <ellipse class="st s2" cx="240" cy="${cy - 40}" rx="48" ry="30" fill="url(#steam${id})"/>
   </g>
   <g class="c-splash">
-    <circle class="sp p1" cx="190" cy="136" r="7"/><circle class="sp p2" cx="214" cy="132" r="5"/>
-    <circle class="sp p3" cx="202" cy="128" r="8"/><circle class="sp p4" cx="180" cy="144" r="4"/><circle class="sp p5" cx="226" cy="146" r="4"/>
+    <circle class="sp p1" cx="190" cy="${cy}" r="7"/><circle class="sp p2" cx="214" cy="${cy - 4}" r="5"/>
+    <circle class="sp p3" cx="202" cy="${cy - 8}" r="8"/><circle class="sp p4" cx="180" cy="${cy + 6}" r="4"/><circle class="sp p5" cx="226" cy="${cy + 6}" r="4"/>
   </g>
 </svg>`;
 }

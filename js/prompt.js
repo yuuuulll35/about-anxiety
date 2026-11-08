@@ -1,8 +1,8 @@
-// 주문(OOC). mind-archive 처럼 조각마다 혼자서 완결된다(설정만 보내고 기다리게 하지 않는다).
+// 주문(OOC). 조각마다 혼자서 완결된다(설정만 보내고 기다리게 하지 않는다).
 // - 롤플 채팅 입력창 제한: 조각마다 1,500자 이하
 // - 모델 출력 제한: 답 한 번에 항목 6개씩만 받아 잘리지 않게
 // - 수치는 문자 한 개로 숨겨 채팅에서 결과가 드러나지 않게
-import { ROW, TYPE_CODE } from './codebook.js';
+import { ROW, TYPE_CODE } from './codebook.js?v=20';
 
 export const INPUT_LIMIT = 1500;
 
@@ -65,4 +65,3 @@ export const OOC_STEPS = [
   { title: '숨겨진 마음', text: HID, expect: ['H01', 'H02', 'H03', 'H04', 'H05', 'H06', 'DEEP'] },
 ];
 export const OOC_PARTS = OOC_STEPS.map((s) => s.text);
-export const OOC_PROMPT = OOC_PARTS.join('\n\n');

@@ -1,7 +1,7 @@
 // 물약 레시피 카드: 한 모델에서 HTML 과 저장용 캔버스를 함께 만든다.
-import { ANXIETY, HIDDEN } from './items.js';
-import { colorName, potionName, witchRank, hsl } from './brew.js';
-import { tierOf } from './items.js';
+import { ANXIETY, HIDDEN } from './items.js?v=20';
+import { colorName, potionName, witchRank, hsl } from './brew.js?v=20';
+import { tierOf } from './items.js?v=20';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 

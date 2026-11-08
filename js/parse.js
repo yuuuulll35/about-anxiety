@@ -5,8 +5,8 @@
 //      * 설명: ...
 // 굵게(**), 번호(1.), 글머리(- * • ·), 제목(#), 콜론 위치가 달라도 읽는다.
 
-import { ANXIETY, HIDDEN, ATTACH_TYPES } from './items.js';
-import { decode, SLOTS, levelToPct, ROW, TYPE_CODE } from './codebook.js';
+import { ANXIETY, HIDDEN, ATTACH_TYPES } from './items.js?v=20';
+import { decode, SLOTS, levelToPct, ROW, TYPE_CODE } from './codebook.js?v=20';
 
 const compact = (s) => s.replace(/[\s*_`~:：\[\]【】()（）'"“”‘’]/g, '');
 
@@ -43,10 +43,6 @@ const DEEP_RE = /(DEEPEST|UNSAID|가장\s*깊은\s*(?:불안|곳|마음)|하지\
 const NPC_RE = /^\[?\s*(?:NPC|분석\s*대상|대상)\s*\]?\s*[:：]?\s*(.+)$/i;
 const PC_RE = /^\[?\s*PC\s*\]?\s*[:：]?\s*(.+)$/i;
 
-/**
- * @param {string} raw
- * @returns {{npc:string|null, pc:string|null, items:Record<string, any>, deepest:{title:string, body:string}|null, found:number}}
- */
 /* 짧은 물약 코드:  A01=81|상태값|설명 · H03=스킨십 70|… · NPC=…|PC=… · DEEP=…|… */
 const CODE_RE = /^\s*[*\-•>]*\s*\**\s*(A|H)\s*0?(\d{1,2})\s*\**\s*[=:：]\s*(.+)$/i;
 function parseCompact(text) {
@@ -124,7 +120,7 @@ function parseMul(text) {
   return { npc, pc, items, deepest, found: 18, lines: Object.keys(lines).length, fuzzy: d.fuzzy.length, code: true };
 }
 
-/* 나눠 받은 답: 한 줄에 "A01 Q | 상태값 | 설명", "H03 Q J | …", "DEEP 속마음 | 해설" */
+/* 나눠 받은 답: 한 줄에 "A01 Q | 상태값 | 설명", "H03 Q T | …", "DEEP 속마음 | 해설" */
 const TYPE_OF_CH = Object.fromEntries(Object.entries(TYPE_CODE).map(([k, v]) => [v, k]));
 const LETTER_RE = /^\s*[*\-•>]*\s*\**\s*(A|H)\s*0?(\d{1,2})\s*\**\s*[.:：=)\-–]?\s*([A-Za-z0-9])(?:\s+([A-Za-z]))?\s*(?:\||$)(.*)$/;
 export function parseLetters(text) {
@@ -165,6 +161,10 @@ export function parseLetters(text) {
   return { npc: null, pc: null, items, deepest, found: codes.length, codes, letters: true, fuzzy: Object.values(items).filter((i) => i.uncertain).length };
 }
 
+/**
+ * 어떤 형식이든 받아서 같은 모양으로 돌려준다.
+ * @returns {{npc:string|null, pc:string|null, items:Record<string, any>, deepest:{title:string, body:string}|null, found:number}}
+ */
 export function parseAnalysis(raw) {
   const text = String(raw || '').replace(/\r\n?/g, '\n').replace(/```[a-z]*\n?/gi, '');
   const mul = parseMul(text);

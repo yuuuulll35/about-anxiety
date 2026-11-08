@@ -1,19 +1,18 @@
-import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js';
-import { parseAnalysis } from './parse.js';
-import { SAMPLE } from './sample.js';
-import { OOC_PARTS, OOC_STEPS } from './prompt.js';
-import { FILM_ICONS } from './icons.js';
-import { cauldronSVG } from './cauldron.js';
-import { mixBrew, colorName, hsl, moonPhase, josa, potionName } from './brew.js';
-import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js';
-import { setSound, soundOn, sfx, buzz } from './sound.js';
+import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js?v=20';
+import { parseAnalysis } from './parse.js?v=20';
+import { SAMPLE } from './sample.js?v=20';
+import { OOC_STEPS } from './prompt.js?v=20';
+import { FILM_ICONS } from './icons.js?v=20';
+import { cauldronSVG, RIM } from './cauldron.js?v=20';
+import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=20';
+import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=20';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=20';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const pad2 = (n) => String(n).padStart(2, '0');
-const lastWord = (s) => s.split(' ').pop();
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -37,7 +36,6 @@ function toast(msg) {
   toastT = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-const cat = $('#cat');
 function say(html, quiet = false) {
   $('#catSay').innerHTML = html;
   if (quiet) return; // 같은 단계를 다시 그릴 때는 말풍선을 흔들지 않는다 (고양이는 아예 들썩이지 않는다)
@@ -93,7 +91,6 @@ const guessN = () => Object.keys(G.g).length;
 let guessBrew = null;
 let step = 'intro'; // 준비 단계: intro → name → pc → guess → attach → ooc → paste
 let introAt = 0;
-let curGuess = null; // 지금 묻고 있는 병
 
 function paintWho() {
   $('#who').hidden = !npc;
@@ -156,7 +153,6 @@ function goStep(s) {
     }
     case 'guess':
       setPhase('guess');
-      curGuess = null;
       guessIntro();
       break;
     case 'attach':
@@ -331,38 +327,51 @@ function guessAct() {
   act(n >= 12 ? '나만의 물약 완성!' : n ? `여기까지 완성 (${n}/12)` : null, guessDone);
 }
 
-/* 나만의 물약 완성: 병들이 차례로 반짝이고, 솥 위에 내 물약 병과 이름이 떠오른다 */
-const TIER_RANK = { high: 3, mid: 2, low: 1 };
-let guessShowing = false;
-function guessDone() {
-  if (guessShowing) return;
-  const picked = ANXIETY.filter((d) => G.g[d.key]).sort((a, b) => TIER_RANK[G.g[b.key]] - TIER_RANK[G.g[a.key]]);
-  if (reduced || !picked.length || !guessBrew) { goStep('attach'); return; }
-  guessShowing = true;
-  act(null);
-  $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
-  const color = hsl(guessBrew.h, guessBrew.s, guessBrew.l);
+/* 물약 완성 카드: 솥 위에 병이 떠올라 물약 색으로 차오르고 이름이 나온다.
+   나만의 물약(짐작 끝)과 진짜 물약(봉랍을 깬 뒤) 둘 다 이 카드를 쓴다. stay 면 누를 때까지 남는다. */
+let cardShowing = false;
+function potionCard({ title, name, sub, color, stay = false }, then) {
+  if (cardShowing) return;
+  if (reduced) { then(); return; }
+  cardShowing = true;
   const card = $('#guessDone');
   card.style.setProperty('--v', color);
-  $('#gdName').textContent = `「${potionName(picked)}」`;
-  $('#gdSub').textContent = `${colorName(guessBrew)} · 병 ${picked.length}/12`;
-  ANXIETY.forEach((d, i) => { const el = hangEl(d.key); el.style.setProperty('--wave', `${i * 45}ms`); });
+  card.classList.toggle('stay', stay);
+  $('#gdTitle').textContent = title;
+  $('#gdName').textContent = name;
+  $('#gdSub').textContent = sub;
+  card.setAttribute('aria-label', `${title} ${name}. 눌러서 계속`);
   stage.classList.remove('gd-on'); void stage.offsetWidth; stage.classList.add('gd-on');
-  ask('짜잔, <b>나만의 물약</b> 완성! 진짜 물약이랑 얼마나 닮았을까?');
   sfx.vision(); buzz(30);
   const finish = () => {
-    if (!guessShowing) return;
-    guessShowing = false;
+    if (!cardShowing) return;
+    cardShowing = false;
     stage.classList.remove('gd-on');
     card.removeEventListener('click', finish);
-    goStep('attach');
+    clearTimeout(timer);
+    then();
   };
   card.addEventListener('click', finish);
-  setTimeout(finish, 2400);
+  const timer = stay ? 0 : setTimeout(finish, 2400);
+}
+
+const TIER_RANK = { high: 3, mid: 2, low: 1 };
+function guessDone() {
+  const picked = ANXIETY.filter((d) => G.g[d.key]).sort((a, b) => TIER_RANK[G.g[b.key]] - TIER_RANK[G.g[a.key]]);
+  if (!picked.length || !guessBrew) { goStep('attach'); return; }
+  act(null);
+  $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
+  ANXIETY.forEach((d, i) => hangEl(d.key).style.setProperty('--wave', `${i * 45}ms`));
+  ask('짜잔, <b>나만의 물약</b> 완성! 진짜 물약이랑 얼마나 닮았을까?');
+  potionCard({
+    title: '나만의 물약 완성!',
+    name: `「${potionName(picked)}」`,
+    sub: `${colorName(guessBrew)} · 병 ${picked.length}/12`,
+    color: hsl(guessBrew.h, guessBrew.s, guessBrew.l),
+  }, () => goStep('attach'));
 }
 
 function guessAsk(key) {
-  curGuess = key;
   $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
   $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
   hangEl(key).classList.add('asking');
@@ -541,7 +550,6 @@ function buildHangs() {
     b.setAttribute('role', 'listitem');
     b.style.setProperty('--c', d.color);
     b.style.setProperty('--len', `calc(${LEN[i]}px * var(--bottle) / 60px)`);
-    b.style.animationDelay = `${-(i * 0.73) % 4.5}s`;
     b.innerHTML = `
       <span class="bottle" aria-hidden="true"><span class="cork"></span><span class="glass"><span class="liquid"></span><span class="shine"></span></span><span class="q">?</span></span>
       <span class="label">${esc(d.short)}<small></small></span>`;
@@ -648,7 +656,6 @@ function pourAll() {
 
 function pour(key, then = null) {
   const it = data.items[key];
-  const d = ANXIETY.find((x) => x.key === key);
   const el = hangEl(key);
   const guess = st.guesses[key];
   let hit = null;
@@ -749,18 +756,19 @@ const pot = $('#pot');
 const ringFg = $('#ringFg');
 const TURN = Math.PI * 2 * 1.15;
 function setLadle(a) {
-  const hx = 200 + 108 * Math.cos(a), hy = 140 + 50 * Math.sin(a);
+  const hx = RIM.cx + (RIM.rx - 40) * Math.cos(a), hy = RIM.cy + (RIM.ry - 10) * Math.sin(a);
   const h = $('#ladleHead'), s = $('#ladleStick');
   h.setAttribute('cx', hx.toFixed(1)); h.setAttribute('cy', hy.toFixed(1));
   s.setAttribute('x1', hx.toFixed(1)); s.setAttribute('y1', hy.toFixed(1));
-  s.setAttribute('x2', (hx * .45 + 420 * .55).toFixed(1)); s.setAttribute('y2', '-60');
+  s.setAttribute('x2', (hx * .5 + 190).toFixed(1)); s.setAttribute('y2', String(RIM.cy - 100));
 }
 setLadle(0);
 const setRing = (p) => { ringFg.style.strokeDashoffset = String(100 - Math.min(1, p) * 100); };
 const nextVision = () => HIDDEN.find((d) => data.items[d.key] && !st.dev.has(d.key));
 
 let stirring = false, lastA = 0, lastSwish = 0, summoning = false;
-const angleOf = (e) => { const r = pot.getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * .467)) * 2.1, e.clientX - (r.left + r.width / 2)); };
+// 솥 아가리(납작한 타원) 기준 각도. 세로 차이를 타원 비율만큼 늘려 원처럼 돌린다.
+const angleOf = (e) => { const r = $('#pot .cauldron').getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * RIM.cy / 360)) * (RIM.rx / RIM.ry), e.clientX - (r.left + r.width / 2)); };
 pot.addEventListener('pointerdown', (e) => {
   if (phase === 'brew') { toast('재료를 모두 부은 뒤에 저을 수 있어요.'); return; }
   if (phase !== 'stir' || summoning || st.auto) return;
@@ -917,7 +925,16 @@ scrollDlg.addEventListener('close', () => {
   if (phase !== 'seal') return;
   writeRecipe();
   setPhase('done');
-  openBook('recipe');
+  const ranked = ANXIETY.filter((d) => data.items[d.key]?.pct != null).sort((a, b) => data.items[b.key].pct - data.items[a.key].pct);
+  act(null);
+  say('완성이다냥! <b>진짜 물약</b>이 다 끓었어.');
+  potionCard({
+    title: '진짜 물약 완성!',
+    name: `「${potionName(ranked)}」`,
+    sub: [brew && colorName(brew), st.guessed ? `나만의 물약과 ${st.hits}/${st.guessed}병 같음` : '', witchRank(st.guessed, st.hits)].filter(Boolean).join(' · '),
+    color: brew ? hsl(brew.h, brew.s, brew.l) : 'var(--brew)',
+    stay: true,
+  }, () => { setPhase('done'); openBook('recipe'); });
 });
 
 function typeText(el, text, done) {
@@ -997,7 +1014,6 @@ $('#restart').addEventListener('click', () => {
   }, { passive: true });
 }
 
-/* 고양이는 움직이지 않는다. 좁은 화면에서는 큰 고양이 대신 말풍선 이름표의 작은 얼굴로 나온다(CSS). */
 
 /* 무대는 스크롤되지 않는다. 브라우저가 포커스를 따라 밀어 올려도 바로 제자리로 돌린다 */
 [stage, $('.floor'), document.body, document.documentElement].forEach((el) => {
