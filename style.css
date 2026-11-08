@@ -1064,3 +1064,24 @@ body { background: #0f0b1d; }
 .ignite .e8 { --dx: 129px; --dy: -151px; animation-delay: 0.29s; }
 .ignite .e9 { --dx: 138px; --dy: -135px; animation-delay: 0.51s; }
 .ignite .e10 { --dx: 139px; --dy: -221px; animation-delay: 0.18s; }
+
+/* v3.1 · 좁은 화면에도 고양이를 둔다. 오른쪽 아래 고정 자리, 절대 움직이지 않는다.
+   말풍선이 길어지면 고양이 위를 덮을 뿐(z-index), 고양이를 밀거나 숨기지 않는다. */
+.familiar { display: block; width: clamp(84px, 24vw, 150px); }
+.say-cat { display: none; }
+.say-box::after { display: block; }
+@media (min-width: 900px), (min-aspect-ratio: 5 / 4) and (min-width: 700px) {
+  .familiar { width: calc(var(--catw) * 1.05); }
+}
+.familiar { width: clamp(72px, min(24vw, 14dvh), 150px); }
+@media (min-width: 900px), (min-aspect-ratio: 5 / 4) and (min-width: 700px) {
+  .familiar { width: calc(var(--catw) * 1.05); }
+}
+/* 알림은 위쪽(선반 위)에 — 아래쪽 고양이·책을 가리지 않게 */
+.toast { top: calc(52px + env(safe-area-inset-top)); bottom: auto; translate: -50% -10px; }
+.toast.show { translate: -50% 0; }
+/* 점화 중에는 유리 선반·하단 바의 흐림 효과를 잠시 끈다(불길 위에서 매 프레임 다시 흐리느라 버벅인다) */
+.stage.igniting .shelf-panel, .stage.igniting .hud { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* 하단 바 높이는 단계가 바뀌어도 그대로: 물약 이름이 길어져도 줄이 늘지 않게 */
+.brew-text { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 360px) { .brew-text { display: none; } }

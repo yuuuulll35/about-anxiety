@@ -861,7 +861,7 @@ $('#restart').addEventListener('click', () => {
   G = { g: {}, attach: null }; saveGuess();
   draftText = ''; store.set('aa.text', ''); store.set('aa.copiedParts', ''); tabAt = null;
   $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty', 'coach'); $('.mark', h)?.remove(); });
-  $('#trackDrops').innerHTML = ''; $('#trackStars').innerHTML = ''; $('#trackSeal i').classList.remove('on');
+  emptyTracks(); $('#trackSeal i').classList.remove('on');
   flaskBtn.classList.remove('open', 'knock'); flaskBtn.dataset.hits = '0';
   $('#vialReal').style.setProperty('--v', 'transparent');
   paintGuess(); paintWho();
@@ -902,6 +902,12 @@ $('#restart').addEventListener('click', () => {
 });
 
 /* ───────── 시작 ───────── */
+// 진행 칸(방울 12 · 별 6)은 처음부터 빈 칸으로 깔아 둔다. 붓기 단계에서 새로 생기면 하단 바 높이가 바뀌어 장면 전체가 밀린다.
+function emptyTracks() {
+  $('#trackDrops').innerHTML = ANXIETY.map((d) => `<i data-k="${d.key}" style="--c:${d.color}" title="${esc(d.ing)}"></i>`).join('');
+  $('#trackStars').innerHTML = HIDDEN.map((d) => `<i data-k="${d.key}" title="${esc(d.name)}"></i>`).join('');
+}
+emptyTracks();
 buildHangs();
 function freshStart() {
   npc = ''; pc = ''; G = { g: {}, attach: null }; draftText = '';
