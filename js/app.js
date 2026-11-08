@@ -51,6 +51,11 @@ function act(label, fn, sub = false) {
 }
 actBtn.addEventListener('click', () => { sfx.tap(); actFn && actFn(); });
 
+/* 입력 방식: 마우스·터치를 쓰는 중이면 html.pointer — 자동 포커스된 버튼에 키보드용 링이 뜨지 않게 */
+document.documentElement.classList.add('pointer');
+window.addEventListener('pointerdown', () => document.documentElement.classList.add('pointer'), true);
+window.addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key.startsWith('Arrow')) document.documentElement.classList.remove('pointer'); }, true);
+
 /* 소리 */
 const soundBtn = $('#soundBtn');
 function paintSound() {
