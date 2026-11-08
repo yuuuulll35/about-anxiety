@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;700&family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=40">
+  <link rel="stylesheet" href="style.css?v=43">
 </head>
 <body>
   <div class="stage" id="stage" data-phase="title">
@@ -52,7 +52,7 @@
         <div class="vision-rise" id="visionRise" aria-hidden="true"></div>
         <p class="stir-hint" aria-hidden="true"><span>↻</span>여기를 빙글빙글</p>
         <button type="button" class="guess-done" id="guessDone" aria-label="물약 완성. 눌러서 계속"><span class="gd-rays"></span><svg class="gd-flask" viewBox="0 0 80 100" aria-hidden="true"><path class="gd-glass" d="M30 6 H50 V34 C64 40 72 52 72 66 C72 84 58 96 40 96 C22 96 8 84 8 66 C8 52 16 40 30 34 Z"/><path class="gd-liquid" d="M11 64 Q25 58 40 64 T69 64 C70 82 57 93 40 93 C23 93 10 82 11 64 Z"/><path class="gd-shine" d="M20 62 Q18 76 28 86"/><rect class="gd-cork" x="27" y="0" width="26" height="10" rx="3"/></svg><span class="gd-title" id="gdTitle"></span><span class="gd-name" id="gdName"></span><span class="gd-sub" id="gdSub"></span><span class="gd-sparks"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></span></button>
-        <div class="ignite" aria-hidden="true"><span class="ig-flash"></span><span class="ig-flames"><i class="fl1"></i><i class="fl2"></i><i class="fl3"></i><i class="fl4"></i><i class="fl5"></i><i class="fl6"></i><i class="fl7"></i></span><span class="ig-embers"><b class="e1"></b><b class="e2"></b><b class="e3"></b><b class="e4"></b><b class="e5"></b><b class="e6"></b><b class="e7"></b><b class="e8"></b><b class="e9"></b><b class="e10"></b></span><span class="ig-stamp" id="igniteStamp">레시피 완성</span></div>
+        <div class="ignite" aria-hidden="true"><span class="ig-flash"></span><span class="ig-flames"><i class="fl1"></i><i class="fl2"></i><i class="fl3"></i><i class="fl4"></i><i class="fl5"></i><i class="fl6"></i><i class="fl7"></i></span><span class="ig-boil"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="ig-pop"><span class="ig-ring"></span><span class="ig-puff"><i style="--x:34%;--d:0.02s;--s:1"></i><i style="--x:50%;--d:0s;--s:1.3"></i><i style="--x:66%;--d:0.04s;--s:1.05"></i><i style="--x:42%;--d:0.1s;--s:0.8"></i><i style="--x:58%;--d:0.12s;--s:0.85"></i></span><span class="ig-stars"><b class="g" style="--dx:-147px;--dy:-34px;--d:0.08s;--r:-227deg;--s:0.75"></b><b class="p" style="--dx:-193px;--dy:-98px;--d:0.03s;--r:-201deg;--s:0.93"></b><b class="w" style="--dx:-146px;--dy:-101px;--d:0.01s;--r:-147deg;--s:1.05"></b><b class="g" style="--dx:-75px;--dy:-98px;--d:0.07s;--r:-146deg;--s:0.73"></b><b class="p" style="--dx:-42px;--dy:-129px;--d:0.02s;--r:-236deg;--s:0.87"></b><b class="w" style="--dx:-6px;--dy:-124px;--d:0.07s;--r:-185deg;--s:0.75"></b><b class="g" style="--dx:32px;--dy:-153px;--d:0.07s;--r:226deg;--s:0.94"></b><b class="p" style="--dx:57px;--dy:-150px;--d:0.05s;--r:153deg;--s:1.14"></b><b class="w" style="--dx:94px;--dy:-106px;--d:0.07s;--r:177deg;--s:1.10"></b><b class="g" style="--dx:160px;--dy:-139px;--d:0.01s;--r:132deg;--s:1.12"></b><b class="p" style="--dx:150px;--dy:-88px;--d:0.00s;--r:-232deg;--s:1.02"></b><b class="w" style="--dx:164px;--dy:-31px;--d:0.08s;--r:238deg;--s:1.14"></b></span></span></div>
         <button class="flask-btn" id="flaskBtn" type="button" aria-label="코르크 두드리기. 세 번 두드리면 빠집니다" hidden>
           <svg class="flask" viewBox="0 0 200 240" aria-hidden="true">
             <defs>
@@ -72,8 +72,11 @@
             <!-- 병 몸통: 목과 둥근 배가 한 줄로 이어진 하나의 외곽선 (선이 서로 겹치지 않는다) -->
             <path class="f-glass" d="M82 60 V78.3 A72 72 0 1 0 118 78.3 V60 Z"/>
             <g clip-path="url(#flaskClip)">
-              <path class="f-liquid" d="M20 126 C45 112 70 112 100 122 C130 132 155 132 185 118 V230 H20 Z"/>
-              <path class="f-surface" clip-path="url(#flaskClipIn)" d="M20 126 C45 112 70 112 100 122 C130 132 155 132 185 118"/>
+              <g class="f-slosh">
+                <path class="f-liquid back f-wave2" d="M-30 117 q25.0 -7 50 0 t50 0 t50 0 t50 0 t50 0 t50 0 t50 0 t50 0 V240 H-30 Z"/>
+                <path class="f-liquid f-wave" d="M-20 124 q20.0 -9 40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 V240 H-20 Z"/>
+                <g clip-path="url(#flaskClipIn)"><path class="f-surface f-wave" d="M-20 124 q20.0 -9 40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0"/></g>
+              </g>
               <g class="f-deco">
                 <path d="M78 182 C66 174 62 166 65 161 C68 156 75 157 78 162 C81 157 88 156 91 161 C94 166 90 174 78 182 Z"/>
                 <path d="M128 206 C120 201 117 196 119 192.5 C121 189 126 190 128 193 C130 190 135 189 137 192.5 C139 196 136 201 128 206 Z"/>
@@ -177,24 +180,23 @@
   <!-- 주문서(책) -->
   <dialog class="book" id="book" aria-labelledby="bookTitle">
     <div class="book-inner">
-      <nav class="ribbons" aria-label="주문서 장">
-        <button type="button" data-page="recipe">레시피</button>
-        <button type="button" data-page="menu">메뉴</button>
-      </nav>
-      <button class="book-close" type="button" data-book-close aria-label="주문서 덮기">✕</button>
+      <header class="book-head">
+        <nav class="ribbons seg" aria-label="주문서 장">
+          <button type="button" data-page="recipe">레시피</button>
+          <button type="button" data-page="menu">메뉴</button>
+        </nav>
+        <button class="book-close" type="button" data-book-close aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6 L18 18 M18 6 L6 18"/></svg></button>
+      </header>
 
       <section class="page" data-page="menu">
-        <p class="pg-no">주문서</p>
         <h2 id="bookTitle">무엇을 할까?</h2>
-        <button class="btn primary wide" type="button" id="copyPrompt">주문 1/3 복사</button>
-        <button class="btn ghost wide" type="button" id="loadSample">예시로 체험하기</button>
-        <button class="btn ghost wide" type="button" id="restart">처음부터 다시</button>
+        <button class="btn primary wide" type="button" id="loadSample">예시로 체험하기</button>
+        <button class="btn wide" type="button" id="restart">처음부터 다시</button>
       </section>
 
       <section class="page" data-page="recipe">
-        <p class="pg-no">마지막 장 · 레시피</p>
         <div class="recipe" id="recipe"><p class="pg-note">아직 완성된 물약이 없어요.</p></div>
-        <button class="btn primary wide" type="button" id="saveImg">레시피 카드 저장</button>
+        <button class="btn primary wide" type="button" id="saveImg">레시피 카드 이미지로 저장</button>
       </section>
     </div>
   </dialog>
@@ -222,6 +224,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <p class="sr-only">마음 달이는 다락방은 롤플레이 캐릭터의 감정을 놀이처럼 읽는 곳입니다. 실제 심리 진단이 아닙니다.</p>
 
-  <script type="module" src="js/app.js?v=40"></script>
+  <script type="module" src="js/app.js?v=43"></script>
 </body>
 </html>

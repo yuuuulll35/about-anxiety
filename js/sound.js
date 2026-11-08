@@ -200,13 +200,17 @@ export const sfx = {
     tone(700, .09, { gain: .12, to: 200, delay: .16, attack: .002 });
     glass(2093, { gain: .05, delay: .2, len: 1.4 });
   },
-  /** 불 지피기: 화르륵(바람) + 쿵 + 타닥타닥 */
+  /** 불 지피기: 화르륵 → 보글보글 끓는 거품 → 1.3초에 펑! 하고 반짝 */
   ignite() {
     if (!ok()) return;
-    noise(1.3, { freq: 250, to: 1800, type: 'bandpass', q: .8, gain: .2, attack: .25 });
-    noise(1.0, { freq: 120, to: 400, type: 'lowpass', gain: .14, attack: .15 });
-    tone(110, .5, { gain: .2, to: 48, attack: .005 });
-    for (let i = 0; i < 12; i++) noise(rand(.008, .02), { freq: rand(2500, 6000), q: 2, gain: rand(.05, .14), delay: rand(.25, 1.5), attack: .001 });
+    noise(1.1, { freq: 250, to: 1500, type: 'bandpass', q: .8, gain: .16, attack: .2 });
+    tone(110, .4, { gain: .16, to: 48, attack: .005 });
+    for (let i = 0; i < 6; i++) noise(rand(.008, .02), { freq: rand(2500, 6000), q: 2, gain: rand(.04, .1), delay: rand(.1, 1), attack: .001 });
+    for (let i = 0; i < 16; i++) drop(rand(260, 700), { gain: rand(.04, .08), delay: .3 + i * .055 + rand(0, .03), dur: rand(.06, .11) }); // 보글보글
+    noise(.5, { freq: 900, to: 160, type: 'lowpass', q: 1.2, gain: .3, delay: 1.3, attack: .005 }); // 펑
+    tone(150, .35, { gain: .24, to: 55, delay: 1.3, attack: .003 });
+    noise(.8, { freq: 3000, to: 1200, q: .6, gain: .05, delay: 1.36, attack: .06 }); // 연기 쉬익
+    [1568, 2093, 2637].forEach((f, i) => glass(f, { gain: .035, delay: 1.4 + i * .07, len: 1 }));
   },
   /** 책·카드 넘김: 종이 사락 */
   page() { if (!ok()) return; noise(.16, { freq: 3500, to: 1800, q: .7, gain: .07, attack: .04 }); },
@@ -323,7 +327,7 @@ function ambient(play) {
   if (play && !amb) {
     const master = ctx.createGain();
     master.gain.setValueAtTime(0, now());
-    master.gain.linearRampToValueAtTime(.85, now() + 3);
+    master.gain.linearRampToValueAtTime(.28, now() + 3); // 효과음보다 확실히 뒤에 깔리게(약 -10dB)
     master.connect(bus.music);
     amb = { master, bar: 0, next: now() + .3, timer: 0 };
     const tick = () => {

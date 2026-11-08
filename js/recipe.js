@@ -39,7 +39,7 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
 
 export function recipeHTML(m) {
   const bar = (pct, color = '') => `<span class="rc-bar"><i style="width:${pct}%${color ? `;background:${color}` : ''}"></i></span>`;
-  const swatch = (s, label) => (s ? `<span class="rc-sw"><i style="background:${s.color}"></i>${label} · ${esc(s.name)}</span>` : '');
+  const cmp = (s, label) => `<div class="rc-cmp"><i style="background:${s ? s.color : 'transparent'}"></i><span><small>${label}</small><b>${s ? esc(s.name) : '없음'}</b></span></div>`;
   const rank = m.rank.guessed
     ? `<div class="rc-rank">
         <p class="rc-rank-k">마녀 등급</p>
@@ -52,9 +52,13 @@ export function recipeHTML(m) {
   ${rank}
   <header class="rc-head">
     <p class="rc-no">RECIPE No.${m.no} · ${esc(m.date)} · ${esc(m.moon)}</p>
-    <h3 class="rc-title">「${esc(m.title)}」</h3>
-    <p class="rc-who">${esc(m.npc)}${m.pc ? ` → ${esc(m.pc)}` : ''}</p>
-    <p class="rc-sws">${swatch(m.mine, '내 물약')}${swatch(m.real, '사랑의 물약')}</p>
+    <h3 class="rc-title">${esc(m.title)}</h3>
+    <p class="rc-who"><span>${esc(m.npc)}</span>${m.pc ? `<i aria-hidden="true">→</i><span>${esc(m.pc)}</span>` : ''}</p>
+    ${m.mine || m.real ? `<div class="rc-compare">
+      ${cmp(m.mine, '내 물약')}
+      <span class="rc-vs" aria-hidden="true">vs</span>
+      ${cmp(m.real, '사랑의 물약')}
+    </div>` : ''}
   </header>
 
   <section class="rc-sec">
@@ -62,7 +66,7 @@ export function recipeHTML(m) {
     <ol class="rc-top">${m.top.map((t, i) => `
       <li>
         <span class="rc-n">${i + 1}</span>
-        <div><p class="rc-line"><b>${esc(t.name)}</b><em>${t.pct}%</em></p>${bar(t.pct, t.color)}
+        <div><p class="rc-line"><b>${esc(t.name)}</b><em>${t.pct}%</em></p>${bar(t.pct)}
         ${t.status ? `<p class="rc-quote">“${esc(t.status)}”</p>` : ''}</div>
       </li>`).join('')}
     </ol>
@@ -78,7 +82,7 @@ export function recipeHTML(m) {
   <section class="rc-sec">
     <h4>끌림 12가지 한눈에${m.rank.guessed ? `<small class="rc-score"><span class="ok">✓ 성공 ${m.rank.hits}</span><span class="ng">✕ 실패 ${m.rank.guessed - m.rank.hits}</span></small>` : ''}</h4>
     <ul class="rc-grid">${m.all.map((a) => `
-      <li class="rc-cell ${a.mark || 'none'}" style="--c:${a.color}"><span class="rc-cell-k">${esc(a.name)}</span><b class="rc-cell-v">${a.pct}<small>%</small></b><span class="rc-cell-m">${a.mark === 'hit' ? '✓ 성공' : a.mark === 'miss' ? '✕ 실패' : '예상 없음'}</span></li>`).join('')}
+      <li class="rc-cell ${a.mark || 'none'}"><span class="rc-cell-k">${esc(a.name)}</span><b class="rc-cell-v">${a.pct}<small>%</small></b><span class="rc-cell-m">${a.mark === 'hit' ? '✓ 성공' : a.mark === 'miss' ? '✕ 실패' : '예상 없음'}</span></li>`).join('')}
     </ul>
   </section>
 
@@ -95,7 +99,7 @@ export function recipeHTML(m) {
 export function recipeCanvas(m) {
   const S = 2, W = 420, P = 24;
   const BODY = "'IBM Plex Sans KR', sans-serif", SERIF = "'Gowun Batang', serif";
-  const INK = '#2b2033', INK2 = '#6e5a42', WAX = '#9d2f55';
+  const INK = '#2b2033', INK2 = '#6f6478', WAX = '#b8336f'; // 화면과 같은 색 체계: 글자 Plum · 보조 회보라 · 주색 Rose
   const meas = document.createElement('canvas').getContext('2d');
   const wrap = (s, font, maxW) => {
     meas.font = font;
@@ -123,25 +127,25 @@ export function recipeCanvas(m) {
     draw((g) => {
       g.font = `${weight} ${size}px ${BODY}`; g.textAlign = 'left'; g.fillStyle = color; g.fillText(left, P, yy);
       g.textAlign = 'right'; g.fillStyle = rcolor; g.fillText(right, W - P - (mark ? 20 : 0), yy);
-      if (mark) { g.fillStyle = mark === 'hit' ? '#2c8a3c' : '#b3262e'; g.fillText(mark === 'hit' ? '✓' : '✕', W - P, yy); }
+      if (mark) { g.fillStyle = mark === 'hit' ? '#b8336f' : '#a39aab'; g.fillText(mark === 'hit' ? '✓' : '✕', W - P, yy); }
     });
   };
   const bar = (x, yy, w, pct, color = WAX) => draw((g) => {
-    g.fillStyle = 'rgba(46,32,20,.12)'; rr(g, x, yy, w, 7, 4); g.fill();
+    g.fillStyle = 'rgba(43,32,51,.1)'; rr(g, x, yy, w, 7, 4); g.fill();
     g.fillStyle = color; rr(g, x, yy, Math.max(7, (w * pct) / 100), 7, 4); g.fill();
   });
   const heading = (s) => { y += 6; para(s, 15, { weight: 700, color: WAX }); y += 2; };
-  const rule = () => { const yy = y + 6; draw((g) => { g.strokeStyle = 'rgba(46,32,20,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, yy); g.lineTo(W - P, yy); g.stroke(); }); y += 14; };
+  const rule = () => { const yy = y + 6; draw((g) => { g.strokeStyle = 'rgba(43,32,51,.14)'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, yy); g.lineTo(W - P, yy); g.stroke(); }); y += 14; };
 
   // 1) 마녀 등급
   const boxTop = y, boxH = m.rank.guessed ? 116 : 92;
-  draw((g) => { g.fillStyle = '#2b2033'; rr(g, P, boxTop, W - P * 2, boxH, 14); g.fill(); });
+  draw((g) => { g.fillStyle = '#3d2c52'; rr(g, P, boxTop, W - P * 2, boxH, 14); g.fill(); });
   y += 22;
   para('마녀 등급', 12, { weight: 700, color: '#f0c050', align: 'center' });
-  para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', 24, { weight: 700, font: SERIF, color: '#fff4d0', align: 'center' }, W - P * 2, 1.3);
+  para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', 24, { weight: 700, font: SERIF, color: '#fdf4f8', align: 'center' }, W - P * 2, 1.3);
   if (m.rank.guessed) {
     para(starsText(m.rank.stars), 16, { color: '#f0c050', align: 'center' }, W, 1.35);
-    para(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, 12, { weight: 600, color: '#d8d0ee', align: 'center' });
+    para(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, 12, { weight: 600, color: 'rgba(253,244,248,.78)', align: 'center' });
   }
   y = boxTop + boxH + 16;
 
@@ -155,7 +159,7 @@ export function recipeCanvas(m) {
   heading(`${who(m)} 끌리는 이유 TOP 3`);
   m.top.forEach((t, i) => {
     row(`${i + 1}. ${t.name}`, `${t.pct}%`, 15, { weight: 700, rcolor: WAX });
-    y += 22; bar(P, y, W - P * 2, t.pct, t.color); y += 14;
+    y += 22; bar(P, y, W - P * 2, t.pct); y += 14;
     if (t.status) para(`“${t.status}”`, 13, { weight: 700, font: SERIF }, W - P * 2, 1.5);
     y += 6;
   });
@@ -182,19 +186,18 @@ export function recipeCanvas(m) {
       const x = P + (k % cols) * (cw + gap), yy = y + Math.floor(k / cols) * (ch + gap);
       const mk = withMark ? (a.mark || 'none') : 'none';
       draw((g) => {
-        g.fillStyle = mk === 'hit' ? '#f1fbe8' : mk === 'miss' ? '#fff1f3' : '#ffffff'; rr(g, x, yy, cw, ch, 10); g.fill();
-        g.strokeStyle = mk === 'hit' ? '#9fd77e' : mk === 'miss' ? '#f2a9b6' : 'rgba(43,32,51,.14)'; g.lineWidth = 1; rr(g, x + .5, yy + .5, cw - 1, ch - 1, 10); g.stroke();
-        g.save(); rr(g, x, yy, cw, ch, 10); g.clip(); g.fillStyle = a.color || WAX; g.fillRect(x, yy, cw, 4); g.restore();
+        g.fillStyle = mk === 'hit' ? '#fce8f1' : '#ffffff'; rr(g, x, yy, cw, ch, 10); g.fill();
+        g.strokeStyle = mk === 'hit' ? '#e0528f' : 'rgba(43,32,51,.14)'; g.lineWidth = 1; rr(g, x + .5, yy + .5, cw - 1, ch - 1, 10); g.stroke();
         g.textAlign = 'center';
-        g.font = `700 11px ${BODY}`; g.fillStyle = '#5a4a3a'; g.fillText(a.name, x + cw / 2, yy + 22);
+        g.font = `700 11px ${BODY}`; g.fillStyle = INK2; g.fillText(a.name, x + cw / 2, yy + 22);
         g.font = `700 19px ${BODY}`; g.fillStyle = INK; g.fillText(`${a.pct ?? '—'}%`, x + cw / 2, yy + 46);
         if (withMark) {
           const lab = mk === 'hit' ? '✓ 성공' : mk === 'miss' ? '✕ 실패' : '예상 없음';
           g.font = `800 10.5px ${BODY}`;
           const tw = g.measureText(lab).width + 14;
-          g.fillStyle = mk === 'hit' ? '#4caf3a' : mk === 'miss' ? '#d8435f' : 'rgba(46,32,20,.08)';
+          g.fillStyle = mk === 'hit' ? '#e0528f' : '#f2ebe2';
           rr(g, x + cw / 2 - tw / 2, yy + 53, tw, 16, 8); g.fill();
-          g.fillStyle = mk === 'none' ? '#8a7a6a' : '#fff'; g.fillText(lab, x + cw / 2, yy + 65);
+          g.fillStyle = mk === 'hit' ? '#fff' : '#6f6478'; g.fillText(lab, x + cw / 2, yy + 65);
         }
       });
     });
@@ -207,7 +210,7 @@ export function recipeCanvas(m) {
   // 5) 숨겨진 마음
   if (m.hidden.length) {
     heading('숨겨진 마음');
-    y += 4; grid(m.hidden.map((h) => ({ ...h, color: WAX })), 3, false);
+    y += 4; grid(m.hidden, 3, false);
     rule();
   }
 
@@ -221,8 +224,8 @@ export function recipeCanvas(m) {
   c.width = W * S; c.height = H * S;
   const g = c.getContext('2d');
   g.scale(S, S);
-  g.fillStyle = '#f3e6c6'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#6b4426'; g.lineWidth = 2; g.strokeRect(8, 8, W - 16, H - 16);
+  g.fillStyle = '#fbf7f1'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#3d2c52'; g.lineWidth = 2; g.strokeRect(8, 8, W - 16, H - 16);
   g.textBaseline = 'alphabetic';
   ops.forEach((op) => op(g));
   return c;

@@ -5,8 +5,8 @@ import { OOC_STEPS } from './prompt.js?v=27';
 import { icon, LANG_ICON } from './icons.js?v=40';
 import { cauldronSVG, RIM } from './cauldron.js?v=40';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
-import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=40';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=40';
+import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=43';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=42';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -74,7 +74,6 @@ paintSound();
 $('#pot').innerHTML = cauldronSVG('p', true);
 const m = moonPhase();
 $('#moon').textContent = m.icon;
-$('#copyPrompt').innerHTML = `${icon('copy')}주문 1/3 복사`;
 $('#moon').parentElement.title = `오늘의 달 · ${m.label}`;
 
 function setBrewVars(target, b) {
@@ -427,11 +426,8 @@ function paintGuess() {
   paintHangs();
   guessBrew = mixBrew(ANXIETY.filter((d) => G.g[d.key]).map((d) => ({ color: d.color, pct: GUESS_PCT[G.g[d.key]] })));
   $('#vialGuess').style.setProperty('--v', guessBrew ? hsl(guessBrew.h, guessBrew.s, guessBrew.l) : 'transparent');
-  if (['title', 'guess', 'paste'].includes(phase)) {
-    setBrewVars(document.documentElement, guessBrew);
-    setLevel(guessN() / 12);
-    $('#brewText').textContent = guessBrew ? `내 물약 ${colorName(guessBrew)}` : '맹물';
-  }
+  // 솥은 진짜 재료를 붓기 전까지 맹물 그대로 둔다. 내 물약 색은 하단 작은 병과 완성 카드에만 보인다.
+  if (['title', 'guess', 'paste'].includes(phase)) $('#brewText').textContent = guessBrew ? `내 물약 ${colorName(guessBrew)}` : '맹물';
 }
 
 /* ───────── 단계 ───────── */
@@ -493,32 +489,24 @@ async function copyText(text) {
     ta.remove(); return ok;
   }
 }
-$('#copyPrompt').addEventListener('click', async () => {
-  const n = OOC_STEPS.length;
-  const i = +(store.get('aa.menuPart') || 0) % n;
-  const ok = await copyText(OOC_STEPS[i].text);
-  if (ok) store.set('aa.menuPart', String(i + 1));
-  $('#copyPrompt').innerHTML = `${icon('copy')}주문 ${((i + 1) % n) + 1}/${n} 복사`;
-  toast(ok ? `주문 ${i + 1}/${n}을 복사했어요.` : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
-});
 function runSample() {
   if (!npc) npc = '';
   startBrew(SAMPLE, true);
 }
 $('#loadSample').addEventListener('click', () => { book.close(); runSample(); });
 
-/* 점화: 솥 아래 불길이 솟고 불씨가 튀며 "레시피 완성" 도장이 찍힌 뒤 붓기 단계로 넘어간다.
-   transform·opacity 만 움직여 가볍게, 1.6초 안에 끝낸다. */
+/* 점화: 솥 아래 불이 붙고 → 맹물이 보글보글 끓다가 → 1.3초에 펑! (고리 · 연기 · 작은 별이 사방으로) → 붓기 단계.
+   transform·opacity 만 움직여 가볍게, 2.3초 안에 끝낸다. */
 let igniting = false;
 function ignite(found, then) {
   if (reduced) { then(); return; }
   igniting = true;
   $('#sayForm').hidden = true; $('#sayForm').innerHTML = '';
   say(found >= 18 ? '레시피 18줄이 다 모였다! <b>불 붙인다냥!</b>' : `레시피 ${found}줄로 <b>불 붙인다냥!</b>`);
-  $('#igniteStamp').textContent = found >= 18 ? '레시피 완성' : `레시피 ${found}/18`;
   stage.classList.remove('igniting'); void stage.offsetWidth; stage.classList.add('igniting');
   sfx.ignite(); buzz(40);
-  setTimeout(() => { stage.classList.remove('igniting'); igniting = false; then(); }, 1600);
+  setTimeout(() => { splash(); buzz(30); say('<b>펑!</b> 솥이 깨어났다냥!'); }, 1300);
+  setTimeout(() => { stage.classList.remove('igniting'); igniting = false; then(); }, 2300);
 }
 
 function startBrew(text, isSample, lit = false) {
@@ -613,36 +601,6 @@ function applyBrew() {
 }
 
 /* ───────── 붓기 ───────── */
-function flyBottle(el, done) {
-  const dur = 950;
-  const src = $('.bottle', el);
-  const potSvg = $('#pot .cauldron');
-  if (reduced) { done(); return; }
-  const a = src.getBoundingClientRect();
-  const b = potSvg.getBoundingClientRect();
-  const clone = src.cloneNode(true);
-  const fly = document.createElement('div');
-  fly.className = 'fly-bottle';
-  fly.style.setProperty('--c', el.style.getPropertyValue('--c'));
-  fly.style.setProperty('--h', '70%');
-  fly.style.width = a.width + 'px'; fly.style.height = a.height + 'px';
-  clone.style.cssText = `width:${a.width}px;height:${a.height}px`;
-  fly.className += ' ' + [...el.classList].find((c) => c.startsWith('shape-'));
-  fly.appendChild(clone);
-  document.body.appendChild(fly);
-  el.classList.add('flying');
-  const x0 = a.left, y0 = a.top;
-  const x1 = b.left + b.width / 2 - a.width / 2, y1 = b.top + b.height * .3 - a.height / 2;
-  const anim = fly.animate([
-    { transform: `translate(${x0}px, ${y0}px) rotate(0deg)` },
-    { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px) rotate(-60deg)`, offset: .45 },
-    { transform: `translate(${x1}px, ${y1}px) rotate(-130deg)`, offset: .75 },
-    { transform: `translate(${x1}px, ${y1 - 10}px) rotate(-150deg)`, opacity: 0 },
-  ], { duration: dur, easing: 'cubic-bezier(.4,.1,.5,1)' });
-  setTimeout(() => { sfx.plop(); splash(); buzz(20); }, dur * .74);
-  anim.onfinish = () => { fly.remove(); el.classList.remove('flying'); done(); };
-}
-
 function splash() {
   const svg = $('#pot .cauldron');
   svg.classList.remove('splash'); void svg.getBoundingClientRect(); svg.classList.add('splash');
@@ -672,15 +630,13 @@ function markPoured(key) {
   $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
 }
 
+/* 붓기: 병이 날아가지 않는다. 누른 병의 물약이 그 자리에서 비워지고(.poured 의 액체 높이 전환) 솥 색이 바뀐다. */
 function pour(key) {
   st.busy = true;
   sfx.cork();
-  flyBottle(hangEl(key), () => {
-    if (reduced) sfx.plop();
-    markPoured(key);
-    st.busy = false;
-    showIng(key, true);
-  });
+  markPoured(key);
+  setTimeout(() => { sfx.plop(); splash(); buzz(20); }, reduced ? 0 : 180);
+  setTimeout(() => { st.busy = false; showIng(key, true); }, reduced ? 0 : 520);
 }
 
 /** 카드에서 옆 재료로. 아직 안 부은 병이면 모션 없이 바로 붓는다. */
