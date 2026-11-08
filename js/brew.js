@@ -40,7 +40,7 @@ export function mixBrew(parts) {
 }
 
 export function colorName({ h, s }) {
-  if (s < .42) return '잿빛';
+  if (s < .42) return '오색빛'; // 여러 색이 고루 섞여 한 색으로 기울지 않음
   if (h < 15 || h >= 345) return '핏빛';
   if (h < 40) return '호박빛';
   if (h < 65) return '금빛';

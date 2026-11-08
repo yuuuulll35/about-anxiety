@@ -4,7 +4,7 @@ import { SAMPLE } from './sample.js';
 import { OOC_PARTS, OOC_STEPS } from './prompt.js';
 import { FILM_ICONS } from './icons.js';
 import { cauldronSVG } from './cauldron.js';
-import { mixBrew, colorName, hsl, moonPhase, josa } from './brew.js';
+import { mixBrew, colorName, hsl, moonPhase, josa, potionName } from './brew.js';
 import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js';
 import { setSound, soundOn, sfx, buzz } from './sound.js';
 
@@ -328,7 +328,37 @@ function guessIntro() {
 
 function guessAct() {
   const n = guessN();
-  act(n >= 12 ? '나만의 물약 완성!' : n ? `여기까지 완성 (${n}/12)` : null, () => goStep('attach'));
+  act(n >= 12 ? '나만의 물약 완성!' : n ? `여기까지 완성 (${n}/12)` : null, guessDone);
+}
+
+/* 나만의 물약 완성: 병들이 차례로 반짝이고, 솥 위에 내 물약 병과 이름이 떠오른다 */
+const TIER_RANK = { high: 3, mid: 2, low: 1 };
+let guessShowing = false;
+function guessDone() {
+  if (guessShowing) return;
+  const picked = ANXIETY.filter((d) => G.g[d.key]).sort((a, b) => TIER_RANK[G.g[b.key]] - TIER_RANK[G.g[a.key]]);
+  if (reduced || !picked.length || !guessBrew) { goStep('attach'); return; }
+  guessShowing = true;
+  act(null);
+  $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
+  const color = hsl(guessBrew.h, guessBrew.s, guessBrew.l);
+  const card = $('#guessDone');
+  card.style.setProperty('--v', color);
+  $('#gdName').textContent = `「${potionName(picked)}」`;
+  $('#gdSub').textContent = `${colorName(guessBrew)} · 병 ${picked.length}/12`;
+  ANXIETY.forEach((d, i) => { const el = hangEl(d.key); el.style.setProperty('--wave', `${i * 45}ms`); });
+  stage.classList.remove('gd-on'); void stage.offsetWidth; stage.classList.add('gd-on');
+  ask('짜잔, <b>나만의 물약</b> 완성! 진짜 물약이랑 얼마나 닮았을까?');
+  sfx.vision(); buzz(30);
+  const finish = () => {
+    if (!guessShowing) return;
+    guessShowing = false;
+    stage.classList.remove('gd-on');
+    card.removeEventListener('click', finish);
+    goStep('attach');
+  };
+  card.addEventListener('click', finish);
+  setTimeout(finish, 2400);
 }
 
 function guessAsk(key) {
@@ -365,7 +395,7 @@ function onHang(key) {
   const it = data.items[key];
   if (!it) { toast('AI 답변에 이 재료가 없어요.'); return; }
   if (st.poured.has(key)) { showIng(key, false); return; }
-  if (phase !== 'brew' || st.busy) return;
+  if (phase !== 'brew' || st.busy || st.auto) return;
   pour(key);
 }
 
@@ -376,7 +406,7 @@ function paintGuess() {
   if (['title', 'guess', 'paste'].includes(phase)) {
     setBrewVars(document.documentElement, guessBrew);
     setLevel(guessN() / 12);
-    $('#brewText').textContent = guessBrew ? `나만의 · ${colorName(guessBrew)}` : '맹물';
+    $('#brewText').textContent = guessBrew ? `내 물약 ${colorName(guessBrew)}` : '맹물';
   }
 }
 
@@ -391,8 +421,8 @@ function setPhase(p) {
   if (!['title', 'guess', 'paste'].includes(p)) { $('#sayForm').hidden = true; $('#sayForm').innerHTML = ''; }
   switch (p) {
     case 'brew':
-      say(Object.keys(st.guesses).length ? '진짜 레시피 도착! <b>병을 톡</b> 눌러 솥에 부어 봐.' : '<b>병을 톡</b> 눌러 솥에 부어 봐.');
-      act(null);
+      say(`${Object.keys(st.guesses).length ? '진짜 레시피 도착! ' : ''}아래 <b>한 번에 붓기</b>를 누르면 내가 다 부어 줄게. 병을 톡 눌러 하나씩 부어도 돼.`);
+      act('한 번에 붓기 ▸', pourAll);
       hangEl(ANXIETY.find((d) => !st.poured.has(d.key))?.key ?? ANXIETY[0].key).classList.add('coach');
       break;
     case 'stir':
@@ -555,12 +585,12 @@ function applyBrew() {
   brew = mixBrew(parts);
   setBrewVars(document.documentElement, brew);
   setLevel(st.poured.size / 12);
-  $('#brewText').textContent = brew ? `${colorName(brew)} 물약` : '맹물';
+  $('#brewText').textContent = brew ? `진짜 물약 ${colorName(brew)}` : '맹물';
   $('#vialReal').style.setProperty('--v', brew ? hsl(brew.h, brew.s, brew.l) : 'transparent');
 }
 
 /* ───────── 붓기 ───────── */
-function flyBottle(el, done) {
+function flyBottle(el, done, dur = 950) {
   const src = $('.bottle', el);
   const potSvg = $('#pot .cauldron');
   if (reduced) { done(); return; }
@@ -584,8 +614,8 @@ function flyBottle(el, done) {
     { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px) rotate(-60deg)`, offset: .45 },
     { transform: `translate(${x1}px, ${y1}px) rotate(-130deg)`, offset: .75 },
     { transform: `translate(${x1}px, ${y1 - 10}px) rotate(-150deg)`, opacity: 0 },
-  ], { duration: 950, easing: 'cubic-bezier(.4,.1,.5,1)' });
-  setTimeout(() => { sfx.plop(); splash(); buzz(20); }, 700);
+  ], { duration: dur, easing: 'cubic-bezier(.4,.1,.5,1)' });
+  setTimeout(() => { sfx.plop(); splash(); buzz(20); }, dur * .74);
   anim.onfinish = () => { fly.remove(); el.classList.remove('flying'); done(); };
 }
 
@@ -595,7 +625,28 @@ function splash() {
   setTimeout(() => svg.classList.remove('splash'), 800);
 }
 
-function pour(key) {
+/* 한 번에 붓기: 남은 병을 왼쪽부터 차례로 빠르게 붓는다. 재료 카드는 띄우지 않고(부은 병을 누르면 볼 수 있다),
+   다 부으면 맞힌 수를 알려 주고 젓기로 넘어간다. */
+function pourAll() {
+  if (phase !== 'brew' || st.busy || st.auto) return;
+  st.auto = true;
+  act(null);
+  $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
+  say('좋아, 내가 <b>차례로 부을게</b>냥!');
+  const next = () => {
+    const d = ANXIETY.find((x) => data.items[x.key] && !st.poured.has(x.key));
+    if (!d) {
+      st.auto = false;
+      toast(st.guessed ? `다 부었어요! 나만의 물약과 같은 병 ${st.hits}/${st.guessed}` : '다 부었어요!');
+      setPhase('stir');
+      return;
+    }
+    pour(d.key, next);
+  };
+  next();
+}
+
+function pour(key, then = null) {
   const it = data.items[key];
   const d = ANXIETY.find((x) => x.key === key);
   const el = hangEl(key);
@@ -621,9 +672,9 @@ function pour(key) {
     st.busy = false;
     $$('.hang.coach').forEach((h) => h.classList.remove('coach'));
     const nx = ANXIETY.find((d) => !st.poured.has(d.key));
-    if (nx) hangEl(nx.key).classList.add('coach');
-    showIng(key, true);
-  });
+    if (nx && !st.auto) hangEl(nx.key).classList.add('coach');
+    if (then) setTimeout(then, reduced ? 0 : 60); else showIng(key, true);
+  }, then ? 420 : 950);
 }
 
 /* ───────── 카드(시트) ───────── */

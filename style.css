@@ -1085,3 +1085,38 @@ body { background: #0f0b1d; }
 /* 하단 바 높이는 단계가 바뀌어도 그대로: 물약 이름이 길어져도 줄이 늘지 않게 */
 .brew-text { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 360px) { .brew-text { display: none; } }
+
+/* ───── 나만의 물약 완성 ───── */
+.guess-done { position: absolute; left: 50%; top: 40%; translate: -50% -50%; z-index: 6; display: none;
+  flex-direction: column; align-items: center; gap: 2px; padding: 14px 22px 14px; min-width: min(260px, 80vw);
+  border: 1px solid rgba(255, 255, 255, .25); border-radius: 22px; background: rgba(20, 14, 38, .82);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .5), 0 0 40px color-mix(in srgb, var(--v, #a98bff) 45%, transparent);
+  color: var(--parch); pointer-events: auto; cursor: pointer; }
+.stage.gd-on .guess-done { display: flex; animation: gdin .55s cubic-bezier(.2, 1.4, .4, 1) both, gdout .35s ease-in 2.05s forwards; }
+@keyframes gdin { from { opacity: 0; transform: translateY(24px) scale(.6); } }
+@keyframes gdout { to { opacity: 0; transform: translateY(-16px) scale(.96); } }
+.gd-rays { position: absolute; left: 50%; top: 52px; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--v, #a98bff) 45%, transparent) 0 8deg, transparent 8deg 22deg);
+  -webkit-mask: radial-gradient(closest-side, #000 30%, transparent); mask: radial-gradient(closest-side, #000 30%, transparent);
+  opacity: .7; animation: gdspin 6s linear infinite; z-index: -1; }
+@keyframes gdspin { to { transform: rotate(360deg); } }
+.gd-flask { width: 64px; height: 80px; overflow: visible; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--v, #a98bff) 70%, transparent)); animation: gdbob 1.6s ease-in-out .5s infinite; }
+@keyframes gdbob { 50% { transform: translateY(-4px) rotate(-3deg); } }
+.gd-glass { fill: rgba(255, 255, 255, .1); stroke: var(--parch); stroke-width: 3; }
+.gd-liquid { fill: var(--v, #a98bff); transform-origin: 50% 100%; animation: gdfill .7s ease-out .15s both; }
+@keyframes gdfill { from { transform: scaleY(0); } }
+.gd-shine { fill: none; stroke: rgba(255, 255, 255, .5); stroke-width: 3; stroke-linecap: round; }
+.gd-cork { fill: #b07a46; stroke: rgba(0, 0, 0, .4); stroke-width: 1.5; }
+.gd-title { margin-top: 4px; font-family: var(--f-disp); font-weight: 700; font-size: 20px; color: #fff4d0; }
+.gd-name { font-family: var(--f-serif); font-weight: 700; font-size: 15px; color: color-mix(in srgb, var(--v, #a98bff) 55%, #fff); }
+.gd-sub { font-size: 12px; color: var(--mist-2); }
+.gd-sparks b { position: absolute; left: 50%; top: 52px; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #fff6c0;
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--v, #a98bff) 70%, #fff); opacity: 0; animation: gdspark 1s ease-out .3s both; }
+.gd-sparks b:nth-child(1) { --dx: -90px; --dy: -50px; } .gd-sparks b:nth-child(2) { --dx: 90px; --dy: -46px; }
+.gd-sparks b:nth-child(3) { --dx: -60px; --dy: -86px; } .gd-sparks b:nth-child(4) { --dx: 64px; --dy: -84px; }
+.gd-sparks b:nth-child(5) { --dx: -110px; --dy: 4px; } .gd-sparks b:nth-child(6) { --dx: 112px; --dy: 8px; }
+.gd-sparks b:nth-child(7) { --dx: -20px; --dy: -100px; } .gd-sparks b:nth-child(8) { --dx: 24px; --dy: -96px; }
+@keyframes gdspark { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.2); } }
+/* 선반의 병들이 왼쪽부터 차례로 톡 튀며 반짝 */
+.stage.gd-on .hang.set .bottle { animation: gdwave .5s ease-out var(--wave, 0ms) both; }
+@keyframes gdwave { 40% { transform: translateY(-8px) scale(1.08); filter: drop-shadow(0 0 12px var(--c)); } }
