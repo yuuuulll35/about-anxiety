@@ -88,7 +88,7 @@ export function recipeHTML(m) {
   </section>` : ''}
 
   ${m.deep ? `<section class="rc-sec rc-deep"><h4>${esc(m.npc)}, 아직 하지 못한 말</h4><p>“${esc(m.deep)}”</p></section>` : ''}
-  <p class="rc-foot">마녀의 속마음 실험실 · 놀이용 해석이에요</p>`;
+  <p class="rc-foot">마음 달이는 다락방 · 놀이용 해석이에요</p>`;
 }
 
 /* ───────── 저장용 PNG (폭 420px × 2배). 화면 카드와 같은 순서·내용 ───────── */
@@ -194,7 +194,7 @@ export function recipeCanvas(m) {
   // 6) 아직 하지 못한 말
   if (m.deep) { heading(`${m.npc}, 아직 하지 못한 말`); para(`“${m.deep}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6); }
   y += 10;
-  para('마녀의 속마음 실험실 · 놀이용 해석이에요', 11, { color: INK2, align: 'center' });
+  para('마음 달이는 다락방 · 놀이용 해석이에요', 11, { color: INK2, align: 'center' });
   const H = Math.ceil(y + P);
 
   const c = document.createElement('canvas');

@@ -5,7 +5,7 @@ import { OOC_STEPS } from './prompt.js?v=27';
 import { FILM_ICONS } from './icons.js?v=27';
 import { cauldronSVG, RIM } from './cauldron.js?v=27';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
-import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=27';
+import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=32';
 import { setSound, soundOn, sfx, buzz } from './sound.js?v=30';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -292,7 +292,7 @@ function addAnswer(t, i) {
 
 /* 튜토리얼: 한 줄씩, 말하는 대상을 비춘다 */
 const INTRO = [
-  { t: '어서 와, 의뢰인! 여긴 <b>마녀의 속마음 실험실</b>. 나는 조수 고양이 <b>먹물</b>이다냥.' },
+  { t: '어서 와, 의뢰인! 여긴 달빛 아래 마음을 달이는 <b>다락방</b>. 나는 조수 고양이 <b>먹물</b>이다냥.' },
   { t: '여기선 캐릭터의 <b>속마음</b>을 물약으로 끓여. 오늘 끓일 건 <b>사랑의 묘약</b>! 천장에 매달린 <b>병 12개</b>가 마음이 끌리는 이유 12가지야.', f: 'rack' },
   { t: '먼저 네 감으로 병마다 농도를 골라 <b>나만의 물약</b>을 만들어 봐. 정답은 없어!', f: 'rack' },
   { t: '그다음 <b>주문서</b>의 주문(OOC)을 롤플 채팅에 보내면, AI가 <b>진짜 레시피</b>를 알려 줘.', f: 'book' },
@@ -450,7 +450,6 @@ function setPhase(p) {
       break;
     case 'seal':
       say(`마지막 병이 떠올랐어. 이 병엔 ${esc(josa(npc, '이', '가'))}${pc ? ` ${esc(pc)}에게` : ''} <b>아직 하지 못한 말</b>이 봉해져 있어. 빨간 <b>봉랍을 세 번 톡톡톡</b> 두드려서 깨 봐!`);
-      $('#flaskTag').innerHTML = `<b>${esc(josa(npc, '이', '가'))} 아직 하지 못한 말</b><small>봉랍을 3번 톡톡톡</small>`;
       act(null);
       break;
     case 'done':
@@ -945,7 +944,6 @@ flaskBtn.addEventListener('click', () => {
   if (st.knocks < 3) {
     sfx.knock(); buzz(15);
     say(st.knocks === 1 ? '금이 갔다냥! 두 번 더.' : '거의 다 됐어… 마지막 한 번!');
-    $('#flaskTag small').textContent = st.knocks === 1 ? '2번 더 톡톡' : '마지막 1번 톡';
     return;
   }
   flaskBtn.classList.add('open');
