@@ -1,9 +1,11 @@
 // 레시피 카드: 이번 물약으로 알게 된 것을 한 장에 정리한다. 같은 모델로 화면용 HTML 과 저장용 PNG 를 만든다.
 //  1) 마녀 등급(내 예상이 몇 병 맞았나)  2) 끌리는 이유 TOP 3 + 속마음  3) 덜 끌리는 것 · 사랑의 언어
-//  4) 끌림 12가지 막대  5) 숨겨진 마음  6) 아직 하지 못한 말
+//  4) 끌림 12가지 칸(성공/실패 + %)  5) 숨겨진 마음 칸  6) 아직 하지 못한 말
 import { ANXIETY, HIDDEN, tierOf, TIER_LABEL } from './items.js?v=27';
 import { colorName, potionName, witchRank, hsl, josa } from './brew.js?v=27';
 
+/** "한국어. (English.)" → [한국어, 영어]. 괄호 속 번역은 아래 작은 줄로 */
+const splitEn = (t) => { const m = /^(.*?)\s*\(([^()]*[A-Za-z][^()]*)\)\s*$/.exec(t || ''); return m && /[가-힣]/.test(m[1]) ? [m[1], m[2]] : [t || '', '']; };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** 맞힌 비율 → 별 0~5 */
@@ -39,7 +41,7 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
 
 export function recipeHTML(m) {
   const bar = (pct, color = '') => `<span class="rc-bar"><i style="width:${pct}%${color ? `;background:${color}` : ''}"></i></span>`;
-  const swatch = (s, label) => (s ? `<span class="rc-sw"><i style="background:${s.color}"></i>${label} · ${esc(s.name)}</span>` : '');
+  const cmp = (s, label) => `<div class="rc-cmp"><i style="background:${s ? s.color : 'transparent'}"></i><span><small>${label}</small><b>${s ? esc(s.name) : '없음'}</b></span></div>`;
   const rank = m.rank.guessed
     ? `<div class="rc-rank">
         <p class="rc-rank-k">마녀 등급</p>
@@ -52,9 +54,13 @@ export function recipeHTML(m) {
   ${rank}
   <header class="rc-head">
     <p class="rc-no">RECIPE No.${m.no} · ${esc(m.date)} · ${esc(m.moon)}</p>
-    <h3 class="rc-title">「${esc(m.title)}」</h3>
-    <p class="rc-who">${esc(m.npc)}${m.pc ? ` → ${esc(m.pc)}` : ''}</p>
-    <p class="rc-sws">${swatch(m.mine, '내 물약')}${swatch(m.real, '진짜 물약')}</p>
+    <h3 class="rc-title">${esc(m.title)}</h3>
+    <p class="rc-who"><span>${esc(m.npc)}</span>${m.pc ? `<i aria-hidden="true">→</i><span>${esc(m.pc)}</span>` : ''}</p>
+    ${m.mine || m.real ? `<div class="rc-compare">
+      ${cmp(m.mine, '내 물약')}
+      <span class="rc-vs" aria-hidden="true">vs</span>
+      ${cmp(m.real, '사랑의 물약')}
+    </div>` : ''}
   </header>
 
   <section class="rc-sec">
@@ -62,7 +68,7 @@ export function recipeHTML(m) {
     <ol class="rc-top">${m.top.map((t, i) => `
       <li>
         <span class="rc-n">${i + 1}</span>
-        <div><p class="rc-line"><b>${esc(t.name)}</b><em>${t.pct}%</em></p>${bar(t.pct, t.color)}
+        <div><p class="rc-line"><b>${esc(t.name)}</b><em>${t.pct}%</em></p>${bar(t.pct)}
         ${t.status ? `<p class="rc-quote">“${esc(t.status)}”</p>` : ''}</div>
       </li>`).join('')}
     </ol>
@@ -76,26 +82,30 @@ export function recipeHTML(m) {
   </section>` : ''}
 
   <section class="rc-sec">
-    <h4>끌림 12가지 한눈에 ${m.rank.guessed ? '<small>✓ 예상 적중 · ✕ 빗나감</small>' : ''}</h4>
-    <ul class="rc-all">${m.all.map((a) => `
-      <li><span class="rc-k">${esc(a.name)}</span>${bar(a.pct, a.color)}<span class="rc-v">${a.pct}%</span><span class="rc-m ${a.mark || ''}">${a.mark === 'hit' ? '✓' : a.mark === 'miss' ? '✕' : ''}</span></li>`).join('')}
+    <h4>끌림 12가지 한눈에${m.rank.guessed ? `<small class="rc-score"><span class="ok">✓ 성공 ${m.rank.hits}</span><span class="ng">✕ 실패 ${m.rank.guessed - m.rank.hits}</span></small>` : ''}</h4>
+    <ul class="rc-grid">${m.all.map((a) => `
+      <li class="rc-cell ${a.mark || 'none'}"><span class="rc-cell-k">${esc(a.name)}</span><b class="rc-cell-v">${a.pct}<small>%</small></b><span class="rc-cell-m">${a.mark === 'hit' ? '✓ 성공' : a.mark === 'miss' ? '✕ 실패' : '예상 없음'}</span></li>`).join('')}
     </ul>
   </section>
 
   ${m.hidden.length ? `<section class="rc-sec">
     <h4>숨겨진 마음</h4>
-    <ul class="rc-all hid">${m.hidden.map((h) => `<li><span class="rc-k">${esc(h.name)}</span>${bar(h.pct ?? 0)}<span class="rc-v">${h.pct ?? '—'}%</span></li>`).join('')}</ul>
+    <ul class="rc-grid hid">${m.hidden.map((h) => `<li class="rc-cell"><span class="rc-cell-k">${esc(h.name)}</span><b class="rc-cell-v">${h.pct ?? '—'}<small>%</small></b></li>`).join('')}</ul>
   </section>` : ''}
 
-  ${m.deep ? `<section class="rc-sec rc-deep"><h4>${esc(m.npc)}, 아직 하지 못한 말</h4><p>“${esc(m.deep)}”</p></section>` : ''}
-  <p class="rc-foot">마음 달이는 다락방 · 놀이용 해석이에요</p>`;
+  ${m.deep ? (() => { const [ko, en] = splitEn(m.deep); return `<section class="rc-sec rc-deep">
+    <span class="rc-deep-mark" aria-hidden="true">“</span>
+    <h4>${esc(m.npc)}, 아직 하지 못한 말</h4>
+    <p class="rc-deep-ko">${esc(ko)}</p>
+    ${en ? `<p class="rc-deep-en">${esc(en)}</p>` : ''}
+  </section>`; })() : ''}`;
 }
 
 /* ───────── 저장용 PNG (폭 420px × 2배). 화면 카드와 같은 순서·내용 ───────── */
 export function recipeCanvas(m) {
   const S = 2, W = 420, P = 24;
   const BODY = "'IBM Plex Sans KR', sans-serif", SERIF = "'Gowun Batang', serif";
-  const INK = '#2b2033', INK2 = '#6e5a42', WAX = '#9d2f55';
+  const INK = '#2b2033', INK2 = '#6f6478', WAX = '#b8336f'; // 화면과 같은 색 체계: 글자 Plum · 보조 회보라 · 주색 Rose
   const meas = document.createElement('canvas').getContext('2d');
   const wrap = (s, font, maxW) => {
     meas.font = font;
@@ -123,25 +133,25 @@ export function recipeCanvas(m) {
     draw((g) => {
       g.font = `${weight} ${size}px ${BODY}`; g.textAlign = 'left'; g.fillStyle = color; g.fillText(left, P, yy);
       g.textAlign = 'right'; g.fillStyle = rcolor; g.fillText(right, W - P - (mark ? 20 : 0), yy);
-      if (mark) { g.fillStyle = mark === 'hit' ? '#2c8a3c' : '#b3262e'; g.fillText(mark === 'hit' ? '✓' : '✕', W - P, yy); }
+      if (mark) { g.fillStyle = mark === 'hit' ? '#b8336f' : '#a39aab'; g.fillText(mark === 'hit' ? '✓' : '✕', W - P, yy); }
     });
   };
   const bar = (x, yy, w, pct, color = WAX) => draw((g) => {
-    g.fillStyle = 'rgba(46,32,20,.12)'; rr(g, x, yy, w, 7, 4); g.fill();
+    g.fillStyle = 'rgba(43,32,51,.1)'; rr(g, x, yy, w, 7, 4); g.fill();
     g.fillStyle = color; rr(g, x, yy, Math.max(7, (w * pct) / 100), 7, 4); g.fill();
   });
   const heading = (s) => { y += 6; para(s, 15, { weight: 700, color: WAX }); y += 2; };
-  const rule = () => { const yy = y + 6; draw((g) => { g.strokeStyle = 'rgba(46,32,20,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, yy); g.lineTo(W - P, yy); g.stroke(); }); y += 14; };
+  const rule = () => { const yy = y + 6; draw((g) => { g.strokeStyle = 'rgba(43,32,51,.14)'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, yy); g.lineTo(W - P, yy); g.stroke(); }); y += 14; };
 
   // 1) 마녀 등급
   const boxTop = y, boxH = m.rank.guessed ? 116 : 92;
-  draw((g) => { g.fillStyle = '#2b2033'; rr(g, P, boxTop, W - P * 2, boxH, 14); g.fill(); });
+  draw((g) => { g.fillStyle = '#3d2c52'; rr(g, P, boxTop, W - P * 2, boxH, 14); g.fill(); });
   y += 22;
   para('마녀 등급', 12, { weight: 700, color: '#f0c050', align: 'center' });
-  para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', 24, { weight: 700, font: SERIF, color: '#fff4d0', align: 'center' }, W - P * 2, 1.3);
+  para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', 24, { weight: 700, font: SERIF, color: '#fdf4f8', align: 'center' }, W - P * 2, 1.3);
   if (m.rank.guessed) {
     para(starsText(m.rank.stars), 16, { color: '#f0c050', align: 'center' }, W, 1.35);
-    para(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, 12, { weight: 600, color: '#d8d0ee', align: 'center' });
+    para(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, 12, { weight: 600, color: 'rgba(253,244,248,.78)', align: 'center' });
   }
   y = boxTop + boxH + 16;
 
@@ -155,7 +165,7 @@ export function recipeCanvas(m) {
   heading(`${who(m)} 끌리는 이유 TOP 3`);
   m.top.forEach((t, i) => {
     row(`${i + 1}. ${t.name}`, `${t.pct}%`, 15, { weight: 700, rcolor: WAX });
-    y += 22; bar(P, y, W - P * 2, t.pct, t.color); y += 14;
+    y += 22; bar(P, y, W - P * 2, t.pct); y += 14;
     if (t.status) para(`“${t.status}”`, 13, { weight: 700, font: SERIF }, W - P * 2, 1.5);
     y += 6;
   });
@@ -175,34 +185,57 @@ export function recipeCanvas(m) {
   }
   rule();
 
-  // 4) 끌림 12가지
-  heading('끌림 12가지 한눈에');
-  m.all.forEach((a) => {
-    row(a.name, `${a.pct}%`, 13, { mark: a.mark });
-    bar(P + 92, y + 6, W - P * 2 - 92 - 64, a.pct, a.color);
-    y += 22;
-  });
+  // 4) 끌림 12가지: 칸마다 이름 · % · 성공/실패
+  const grid = (cells, cols, withMark) => {
+    const gap = 8, cw = (W - P * 2 - gap * (cols - 1)) / cols, ch = withMark ? 74 : 56;
+    cells.forEach((a, k) => {
+      const x = P + (k % cols) * (cw + gap), yy = y + Math.floor(k / cols) * (ch + gap);
+      const mk = withMark ? (a.mark || 'none') : 'none';
+      draw((g) => {
+        g.fillStyle = mk === 'hit' ? '#fce8f1' : '#ffffff'; rr(g, x, yy, cw, ch, 10); g.fill();
+        g.strokeStyle = mk === 'hit' ? '#e0528f' : 'rgba(43,32,51,.14)'; g.lineWidth = 1; rr(g, x + .5, yy + .5, cw - 1, ch - 1, 10); g.stroke();
+        g.textAlign = 'center';
+        g.font = `700 11px ${BODY}`; g.fillStyle = INK2; g.fillText(a.name, x + cw / 2, yy + 22);
+        g.font = `700 19px ${BODY}`; g.fillStyle = INK; g.fillText(`${a.pct ?? '—'}%`, x + cw / 2, yy + 46);
+        if (withMark) {
+          const lab = mk === 'hit' ? '✓ 성공' : mk === 'miss' ? '✕ 실패' : '예상 없음';
+          g.font = `800 10.5px ${BODY}`;
+          const tw = g.measureText(lab).width + 14;
+          g.fillStyle = mk === 'hit' ? '#e0528f' : '#f2ebe2';
+          rr(g, x + cw / 2 - tw / 2, yy + 53, tw, 16, 8); g.fill();
+          g.fillStyle = mk === 'hit' ? '#fff' : '#6f6478'; g.fillText(lab, x + cw / 2, yy + 65);
+        }
+      });
+    });
+    y += Math.ceil(cells.length / cols) * (ch + gap);
+  };
+  heading(m.rank.guessed ? `끌림 12가지 한눈에 · 성공 ${m.rank.hits} / 실패 ${m.rank.guessed - m.rank.hits}` : '끌림 12가지 한눈에');
+  y += 4; grid(m.all, 4, true);
   rule();
 
   // 5) 숨겨진 마음
   if (m.hidden.length) {
     heading('숨겨진 마음');
-    m.hidden.forEach((h) => { row(h.name, `${h.pct ?? '—'}%`, 13); bar(P + 112, y + 6, W - P * 2 - 112 - 44, h.pct ?? 0); y += 22; });
+    y += 4; grid(m.hidden, 3, false);
     rule();
   }
 
   // 6) 아직 하지 못한 말
-  if (m.deep) { heading(`${m.npc}, 아직 하지 못한 말`); para(`“${m.deep}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6); }
+  if (m.deep) {
+    const [ko, en] = splitEn(m.deep);
+    heading(`${m.npc}, 아직 하지 못한 말`);
+    para(`“${ko}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6);
+    if (en) para(en, 12, { color: INK2 }, W - P * 2, 1.5);
+  }
   y += 10;
-  para('마음 달이는 다락방 · 놀이용 해석이에요', 11, { color: INK2, align: 'center' });
   const H = Math.ceil(y + P);
 
   const c = document.createElement('canvas');
   c.width = W * S; c.height = H * S;
   const g = c.getContext('2d');
   g.scale(S, S);
-  g.fillStyle = '#f3e6c6'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#6b4426'; g.lineWidth = 2; g.strokeRect(8, 8, W - 16, H - 16);
+  g.fillStyle = '#fbf7f1'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#3d2c52'; g.lineWidth = 2; g.strokeRect(8, 8, W - 16, H - 16);
   g.textBaseline = 'alphabetic';
   ops.forEach((op) => op(g));
   return c;
