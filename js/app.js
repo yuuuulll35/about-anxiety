@@ -40,7 +40,6 @@ function toast(msg) {
 const cat = $('#cat');
 function say(html, quiet = false) {
   $('#catSay').innerHTML = html;
-  requestAnimationFrame(avoidCat);
   if (quiet) return; // 같은 단계를 다시 그릴 때는 말풍선을 흔들지 않는다 (고양이는 아예 들썩이지 않는다)
   const box = $('#sayBox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
 }
@@ -878,29 +877,7 @@ $('#restart').addEventListener('click', () => {
   }, { passive: true });
 }
 
-/* 말풍선이 고양이를 덮으면 고양이가 벽 아래로 쏙 숨는다.
-   숨김을 풀었다가 다시 재지 않는다(그러면 다시 그릴 때마다 위아래로 튄다). 숨기 전 위치로 계산한다. */
-let duckPx = 0;
-function avoidCat() {
-  const c = $('#cat'), b = $('#sayBox');
-  let need = 0;
-  if (b.offsetParent !== null) {
-    const cr = c.getBoundingClientRect(), br = b.getBoundingClientRect();
-    const hatTop = $('.cat-hatg').getBoundingClientRect().top - duckPx;
-    const catLeft = cr.left;
-    if (!(br.right <= catLeft + cr.width * .15 || br.bottom <= hatTop)) {
-      // 겹치면 늘 같은 깊이(귀 끝만 보이게)로 숨는다. 말풍선 높이가 바뀌어도 고양이는 그대로다
-      need = cr.height * .86;
-    }
-  }
-  need = Math.max(0, Math.round(need));
-  if (Math.abs(need - duckPx) < 4) return; // 몇 픽셀 차이는 무시
-  duckPx = need;
-  if (need) { c.style.setProperty('--duck', need + 'px'); c.classList.add('duck'); }
-  else { c.style.removeProperty('--duck'); c.classList.remove('duck'); }
-}
-window.addEventListener('resize', () => requestAnimationFrame(avoidCat));
-new ResizeObserver(() => avoidCat()).observe($('#sayBox'));
+/* 고양이는 움직이지 않는다. 좁은 화면에서는 큰 고양이 대신 말풍선 이름표의 작은 얼굴로 나온다(CSS). */
 
 /* 무대는 스크롤되지 않는다. 브라우저가 포커스를 따라 밀어 올려도 바로 제자리로 돌린다 */
 [stage, $('.floor'), document.body, document.documentElement].forEach((el) => {
