@@ -101,141 +101,234 @@ export function recipeHTML(m) {
   </section>`; })() : ''}`;
 }
 
-/* ───────── 저장용 PNG (폭 420px × 2배). 화면 카드와 같은 순서·내용 ───────── */
+/* ───────── 저장용 PNG: 화면의 레시피 카드와 같은 디자인 (폭 440px × 3배) ─────────
+   배경은 종이색 한 장(테두리 선 없음), 섹션마다 둥근 흰 카드. 마녀 등급은 보라 그라데이션, 별은 도형으로 그린다.
+   색은 화면과 같은 체계: 글자 Plum · 주색 Rose(맞힘·강조) · 중립(빗나감) · 포인트 Gold(등급 카드 안만). */
+const C = {
+  paper: '#fbf7f1', paper2: '#f2ebe2', card: '#ffffff', line: 'rgba(43,32,51,.12)',
+  ink: '#2b2033', ink2: '#6f6478', ink3: '#a39aab',
+  pri: '#e0528f', priInk: '#b8336f', priSoft: '#fce8f1', priLine: 'rgba(224,82,143,.45)',
+  sub: '#2b2033', sub2: '#4a3566', gold: '#f0c050', onSub: '#fdf4f8',
+};
+const BODY = "'IBM Plex Sans KR', sans-serif", SERIF = "'Gowun Batang', serif";
+
+/** 그릴 글자들의 웹폰트 조각을 미리 불러온다(구글 폰트는 쓰인 글자만 받아 두므로, 안 하면 이미지에서 글꼴이 바뀐다) */
+export async function prepareRecipeFonts(m) {
+  if (!document.fonts || !document.fonts.load) return;
+  const all = JSON.stringify(m) + '마녀 등급내 예상병 중맞힘끌리는 이유가장 덜 끌리는 것사랑의 언어끌림가지 한눈에성공실패숨겨진 마음아직 하지 못한 말내 물약사랑의 물약예상과 같음나는라고 예상vs%→0123456789RECIPENo.';
+  const specs = ['400 14px "IBM Plex Sans KR"', '500 14px "IBM Plex Sans KR"', '700 14px "IBM Plex Sans KR"', '700 20px "Gowun Batang"', '400 14px "Gowun Batang"'];
+  try { await Promise.all(specs.map((f) => document.fonts.load(f, all))); } catch { /* 그래도 그린다 */ }
+}
+
 export function recipeCanvas(m) {
-  const S = 2, W = 420, P = 24;
-  const BODY = "'IBM Plex Sans KR', sans-serif", SERIF = "'Gowun Batang', serif";
-  const INK = '#2b2033', INK2 = '#6f6478', WAX = '#b8336f'; // 화면과 같은 색 체계: 글자 Plum · 보조 회보라 · 주색 Rose
+  const S = 3, W = 440, P = 20, CW = W - P * 2, IN = 16; // IN: 카드 안쪽 여백
   const meas = document.createElement('canvas').getContext('2d');
-  const wrap = (s, font, maxW) => {
-    meas.font = font;
+  const font = (w, size, fam = BODY, it = false) => `${it ? 'italic ' : ''}${w} ${size}px ${fam}`;
+  /** 줄바꿈은 화면(word-break: keep-all)처럼 낱말 단위. 한 낱말이 한 줄보다 길 때만 글자 단위로 자른다 */
+  const wrap = (str, f, maxW) => {
+    meas.font = f;
+    const fits = (t) => meas.measureText(t).width <= maxW;
     const out = []; let line = '';
-    for (const ch of s) { if (meas.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; } else line += ch; }
-    if (line) out.push(line);
+    for (const word of String(str).split(/(\s+)/).filter((w) => w !== '')) {
+      const next = line + word;
+      if (fits(next) || !line.trim()) {
+        if (fits(next)) { line = next; continue; }
+        for (const ch of word) { if (!fits(line + ch) && line) { out.push(line); line = ''; } line += ch; } // 긴 낱말
+        continue;
+      }
+      out.push(line.trimEnd());
+      line = /^\s+$/.test(word) ? '' : word;
+      if (!fits(line)) { const w = line; line = ''; for (const ch of w) { if (!fits(line + ch) && line) { out.push(line); line = ''; } line += ch; } }
+    }
+    if (line.trim()) out.push(line.trimEnd());
     return out;
   };
+  const tw = (str, f) => { meas.font = f; return meas.measureText(str).width; };
 
-  // 그리기 명령을 모으면서 높이를 잰다
   const ops = [];
+  const draw = (fn) => { ops.push(fn); };
   let y = P;
-  const draw = (fn) => ops.push(fn);
   const rr = (g, x, yy, w, h, r) => { g.beginPath(); g.roundRect(x, yy, w, h, r); };
-  const para = (s, size, { weight = 400, font = BODY, color = INK, align = 'left' } = {}, maxW = W - P * 2, lh = 1.55) => {
-    const f = `${weight} ${size}px ${font}`;
-    for (const ln of wrap(s, f, maxW)) {
-      const yy = y + size;
-      draw((g) => { g.font = f; g.fillStyle = color; g.textAlign = align; g.fillText(ln, align === 'center' ? W / 2 : P, yy); });
-      y += size * lh;
-    }
+  const txt = (str, x, yy, f, color, align = 'left') => draw((g) => { g.font = f; g.fillStyle = color; g.textAlign = align; g.fillText(str, x, yy); });
+  const para = (str, x, maxW, f, size, color, lh = 1.6, align = 'left') => {
+    for (const ln of wrap(str, f, maxW)) { txt(ln, align === 'center' ? x + maxW / 2 : x, y + size, f, color, align); y += size * lh; }
   };
-  const row = (left, right, size, { weight = 600, color = INK, rcolor = INK, mark = null } = {}) => {
-    const yy = y + size;
-    draw((g) => {
-      g.font = `${weight} ${size}px ${BODY}`; g.textAlign = 'left'; g.fillStyle = color; g.fillText(left, P, yy);
-      g.textAlign = 'right'; g.fillStyle = rcolor; g.fillText(right, W - P - (mark ? 20 : 0), yy);
-      if (mark) { g.fillStyle = mark === 'hit' ? '#b8336f' : '#a39aab'; g.fillText(mark === 'hit' ? '✓' : '✕', W - P, yy); }
+  const pill = (label, cx, yy, f, bg, fg, h = 20, padX = 9, align = 'center') => {
+    const w = tw(label, f) + padX * 2;
+    const x = align === 'center' ? cx - w / 2 : cx;
+    draw((g) => { g.fillStyle = bg; rr(g, x, yy, w, h, h / 2); g.fill(); g.font = f; g.fillStyle = fg; g.textAlign = 'center'; g.fillText(label, x + w / 2, yy + h / 2 + 4.2); });
+    return w;
+  };
+  const star = (g, cx, cy, r, filled) => {
+    g.beginPath();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, rad = i % 2 ? r * .45 : r; g.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); }
+    g.closePath();
+    if (filled) { g.fillStyle = C.gold; g.fill(); } else { g.strokeStyle = C.gold; g.lineWidth = 1.4; g.lineJoin = 'round'; g.stroke(); }
+  };
+  /** 카드: 안을 그린 뒤 높이를 알고 배경을 그 아래에 깐다 */
+  const card = (build, { bg = C.card, border = C.line, shadow = true, grad = null } = {}) => {
+    const at = ops.length, top = y;
+    y += IN; build(); y += IN;
+    const h = y - top;
+    ops.splice(at, 0, (g) => {
+      g.save();
+      if (shadow) { g.shadowColor = 'rgba(43,32,51,.10)'; g.shadowBlur = 18; g.shadowOffsetY = 6; }
+      g.fillStyle = grad ? grad(g, top, h) : bg; rr(g, P, top, CW, h, 18); g.fill();
+      g.restore();
+      if (border) { g.strokeStyle = border; g.lineWidth = 1; rr(g, P + .5, top + .5, CW - 1, h - 1, 17.5); g.stroke(); }
     });
+    y += 12;
   };
-  const bar = (x, yy, w, pct, color = WAX) => draw((g) => {
-    g.fillStyle = 'rgba(43,32,51,.1)'; rr(g, x, yy, w, 7, 4); g.fill();
-    g.fillStyle = color; rr(g, x, yy, Math.max(7, (w * pct) / 100), 7, 4); g.fill();
-  });
-  const heading = (s) => { y += 6; para(s, 15, { weight: 700, color: WAX }); y += 2; };
-  const rule = () => { const yy = y + 6; draw((g) => { g.strokeStyle = 'rgba(43,32,51,.14)'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, yy); g.lineTo(W - P, yy); g.stroke(); }); y += 14; };
+  const head = (str) => { txt(str, P + IN, y + 15, font(700, 15.5), C.ink); y += 15 * 1.7; };
+  const X = P + IN, IW = CW - IN * 2;
 
   // 1) 마녀 등급
-  const boxTop = y, boxH = m.rank.guessed ? 116 : 92;
-  draw((g) => { g.fillStyle = '#3d2c52'; rr(g, P, boxTop, W - P * 2, boxH, 14); g.fill(); });
-  y += 22;
-  para('마녀 등급', 12, { weight: 700, color: '#f0c050', align: 'center' });
-  para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', 24, { weight: 700, font: SERIF, color: '#fdf4f8', align: 'center' }, W - P * 2, 1.3);
-  if (m.rank.guessed) {
-    para(starsText(m.rank.stars), 16, { color: '#f0c050', align: 'center' }, W, 1.35);
-    para(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, 12, { weight: 600, color: 'rgba(253,244,248,.78)', align: 'center' });
-  }
-  y = boxTop + boxH + 16;
+  card(() => {
+    const cx = W / 2;
+    y += 4;
+    txt('마녀 등급', cx, y + 12, font(700, 12), C.gold, 'center'); y += 22;
+    para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', X, IW, font(700, 26, SERIF), 26, C.onSub, 1.35, 'center');
+    if (m.rank.guessed) {
+      const sy = y + 12, n = m.rank.stars;
+      draw((g) => { for (let i = 0; i < 5; i++) star(g, cx + (i - 2) * 24, sy, 9.5, i < n); });
+      y += 30;
+      txt(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, cx, y + 13, font(500, 13), 'rgba(253,244,248,.82)', 'center'); y += 20;
+    } else { txt('다음엔 병마다 먼저 예상해 보세요', cx, y + 13, font(500, 13), 'rgba(253,244,248,.82)', 'center'); y += 20; }
+  }, { border: null, grad: (g, top, h) => { const gr = g.createRadialGradient(W / 2, top, 10, W / 2, top + h * .4, CW * .75); gr.addColorStop(0, C.sub2); gr.addColorStop(1, C.sub); return gr; } });
 
-  // 머리
-  para(`RECIPE No.${m.no} · ${m.date} · ${m.moon}`, 11, { color: INK2, align: 'center' });
-  para(`「${m.title}」`, 22, { weight: 700, font: SERIF, align: 'center' }, W - P * 2, 1.35);
-  para(`${m.npc}${m.pc ? ` → ${m.pc}` : ''}`, 13, { weight: 600, color: INK2, align: 'center' });
-  rule();
-
-  // 2) TOP 3
-  heading(`${who(m)} 끌리는 이유 TOP 3`);
-  m.top.forEach((t, i) => {
-    row(`${i + 1}. ${t.name}`, `${t.pct}%`, 15, { weight: 700, rcolor: WAX });
-    y += 22; bar(P, y, W - P * 2, t.pct); y += 14;
-    if (t.status) para(`“${t.status}”`, 13, { weight: 700, font: SERIF }, W - P * 2, 1.5);
-    y += 6;
+  // 2) 물약 이름 · 누가 누구에게 · 내 물약 vs 사랑의 물약
+  card(() => {
+    const cx = W / 2;
+    draw((g) => { g.letterSpacing = '0.6px'; });
+    txt(`RECIPE No.${m.no} · ${m.date} · ${m.moon}`, cx, y + 11, font(600, 11), C.ink3, 'center');
+    draw((g) => { g.letterSpacing = '0px'; });
+    y += 22;
+    para(m.title, X, IW, font(700, 24, SERIF), 24, C.ink, 1.35, 'center');
+    y += 4;
+    const f = font(700, 13), a = m.npc, b = m.pc;
+    const wa = tw(a, f) + 24, wb = b ? tw(b, f) + 24 : 0, gap = b ? 28 : 0;
+    let x0 = cx - (wa + gap + wb) / 2;
+    pill(a, x0, y, f, C.paper2, C.ink, 24, 12, 'left');
+    if (b) { txt('→', x0 + wa + gap / 2, y + 17, font(500, 13), C.ink3, 'center'); pill(b, x0 + wa + gap, y, f, C.paper2, C.ink, 24, 12, 'left'); }
+    y += 24;
+    if (m.mine || m.real) {
+      y += 14;
+      const ty = y; // 그리기는 나중에 일어나므로 지금 y 를 붙잡아 둔다
+      const tile = (s, label, x, w) => draw((g) => { const y = ty;
+        g.fillStyle = C.paper; rr(g, x, y, w, 52, 14); g.fill();
+        g.strokeStyle = C.line; g.lineWidth = 1; rr(g, x + .5, y + .5, w - 1, 51, 13.5); g.stroke();
+        const sx = x + 24, sy = y + 26;
+        if (s) {
+          g.fillStyle = s.color; g.beginPath(); g.arc(sx, sy, 13, 0, Math.PI * 2); g.fill();
+          const sh = g.createRadialGradient(sx - 4, sy - 5, 1, sx, sy, 14); sh.addColorStop(0, 'rgba(255,255,255,.55)'); sh.addColorStop(.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)');
+          g.fillStyle = sh; g.beginPath(); g.arc(sx, sy, 13, 0, Math.PI * 2); g.fill();
+        } else { g.strokeStyle = C.ink3; g.setLineDash([3, 3]); g.beginPath(); g.arc(sx, sy, 12, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
+        g.textAlign = 'left';
+        g.font = font(600, 11); g.fillStyle = C.ink2; g.fillText(label, sx + 22, y + 22);
+        g.font = font(700, 14); g.fillStyle = C.ink; g.fillText(s ? s.name : '없음', sx + 22, y + 40);
+      });
+      const vw = 26, w = (IW - vw) / 2;
+      tile(m.mine, '내 물약', X, w);
+      txt('vs', X + w + vw / 2, y + 30, font(800, 11), C.ink3, 'center');
+      tile(m.real, '사랑의 물약', X + w + vw, w);
+      y += 52;
+    }
   });
-  rule();
 
-  // 3) 덜 끌리는 것 · 사랑의 언어
-  if (m.low) {
-    heading('가장 덜 끌리는 것');
-    para(`${m.low.name} ${m.low.pct}%`, 15, { weight: 700 });
-    if (m.low.status) para(`“${m.low.status}”`, 13, { weight: 700, font: SERIF, color: INK2 });
-  }
-  if (m.lang) {
-    heading('사랑의 언어');
-    const verdict = m.lang.guess ? (m.lang.hit ? '  ✓ 내 예상과 같음' : `  ✕ 나는 ${josa(m.lang.guess, '이라고', '라고')} 예상`) : '';
-    para(`${m.lang.types.join('·') || '알 수 없음'}${m.lang.pct != null ? ` ${m.lang.pct}%` : ''}${verdict}`, 15, { weight: 700 });
-    if (m.lang.status) para(`“${m.lang.status}”`, 13, { weight: 700, font: SERIF, color: INK2 });
-  }
-  rule();
+  // 3) 끌리는 이유 TOP 3
+  card(() => {
+    head(`${who(m)} 끌리는 이유 TOP 3`);
+    y += 2;
+    m.top.forEach((t, i) => {
+      const cy = y + 13;
+      draw((g) => { g.fillStyle = C.ink; g.beginPath(); g.arc(X + 13, cy, 13, 0, Math.PI * 2); g.fill(); g.font = font(700, 13); g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(String(i + 1), X + 13, cy + 4.6); });
+      txt(t.name, X + 36, cy + 5.5, font(700, 16), C.ink);
+      txt(`${t.pct}%`, X + IW, cy + 5.5, font(700, 16), C.priInk, 'right');
+      y += 30;
+      const bx = X + 36, bw = IW - 36;
+      const by = y;
+      draw((g) => { g.fillStyle = 'rgba(43,32,51,.08)'; rr(g, bx, by, bw, 7, 3.5); g.fill(); g.fillStyle = C.pri; rr(g, bx, by, Math.max(7, (bw * t.pct) / 100), 7, 3.5); g.fill(); });
+      y += 16;
+      if (t.status) para(`“${t.status}”`, bx, bw, font(700, 14.5, SERIF), 14.5, C.ink, 1.6);
+      y += i < m.top.length - 1 ? 12 : 0;
+    });
+  });
 
-  // 4) 끌림 12가지: 칸마다 이름 · % · 성공/실패
+  // 4) 가장 덜 끌리는 것 · 사랑의 언어 (두 칸)
+  if (m.low || m.lang) {
+    card(() => {
+      const cols = [m.low, m.lang].filter(Boolean).length, gap = 18, w = (IW - gap * (cols - 1)) / cols;
+      const top = y; let maxY = y, x = X;
+      const col = (title, name, pct, tag, quote) => {
+        y = top;
+        txt(title, x, y + 14, font(700, 14), C.ink); y += 26;
+        txt(name, x, y + 15, font(700, 15.5), C.ink);
+        if (pct != null) txt(`${pct}%`, x + w, y + 15, font(700, 15.5), C.priInk, 'right');
+        y += 26;
+        if (tag) { pill(tag.label, x, y, font(700, 11.5), tag.hit ? C.pri : C.paper2, tag.hit ? '#fff' : C.ink2, 22, 10, 'left'); y += 30; }
+        if (quote) para(`“${quote}”`, x, w, font(700, 13.5, SERIF), 13.5, C.ink2, 1.6);
+        maxY = Math.max(maxY, y); x += w + gap;
+      };
+      if (m.low) col('가장 덜 끌리는 것', m.low.name, m.low.pct, null, m.low.status);
+      if (m.lang) col('사랑의 언어', m.lang.types.join('·') || '알 수 없음', m.lang.pct,
+        m.lang.guess ? { hit: m.lang.hit, label: m.lang.hit ? '✓ 내 예상과 같음' : `✕ 나는 ${josa(m.lang.guess, '이라고', '라고')} 예상` } : null, m.lang.status);
+      y = maxY;
+    });
+  }
+
+  // 5) 끌림 12가지: 칸마다 이름 · % · 성공/실패
   const grid = (cells, cols, withMark) => {
-    const gap = 8, cw = (W - P * 2 - gap * (cols - 1)) / cols, ch = withMark ? 74 : 56;
+    const gap = 8, cw = (IW - gap * (cols - 1)) / cols, ch = withMark ? 84 : 64;
     cells.forEach((a, k) => {
-      const x = P + (k % cols) * (cw + gap), yy = y + Math.floor(k / cols) * (ch + gap);
+      const x = X + (k % cols) * (cw + gap), yy = y + Math.floor(k / cols) * (ch + gap);
       const mk = withMark ? (a.mark || 'none') : 'none';
       draw((g) => {
-        g.fillStyle = mk === 'hit' ? '#fce8f1' : '#ffffff'; rr(g, x, yy, cw, ch, 10); g.fill();
-        g.strokeStyle = mk === 'hit' ? '#e0528f' : 'rgba(43,32,51,.14)'; g.lineWidth = 1; rr(g, x + .5, yy + .5, cw - 1, ch - 1, 10); g.stroke();
+        g.fillStyle = mk === 'hit' ? C.priSoft : C.card; rr(g, x, yy, cw, ch, 12); g.fill();
+        g.strokeStyle = mk === 'hit' ? C.priLine : C.line; g.lineWidth = 1; rr(g, x + .5, yy + .5, cw - 1, ch - 1, 11.5); g.stroke();
         g.textAlign = 'center';
-        g.font = `700 11px ${BODY}`; g.fillStyle = INK2; g.fillText(a.name, x + cw / 2, yy + 22);
-        g.font = `700 19px ${BODY}`; g.fillStyle = INK; g.fillText(`${a.pct ?? '—'}%`, x + cw / 2, yy + 46);
-        if (withMark) {
-          const lab = mk === 'hit' ? '✓ 성공' : mk === 'miss' ? '✕ 실패' : '예상 없음';
-          g.font = `800 10.5px ${BODY}`;
-          const tw = g.measureText(lab).width + 14;
-          g.fillStyle = mk === 'hit' ? '#e0528f' : '#f2ebe2';
-          rr(g, x + cw / 2 - tw / 2, yy + 53, tw, 16, 8); g.fill();
-          g.fillStyle = mk === 'hit' ? '#fff' : '#6f6478'; g.fillText(lab, x + cw / 2, yy + 65);
-        }
+        const lines = wrap(a.name, font(600, 12), cw - 10);
+        lines.slice(0, 2).forEach((ln, i) => { g.font = font(600, 12); g.fillStyle = C.ink2; g.fillText(ln, x + cw / 2, yy + 22 + i * 14 - (lines.length > 1 ? 6 : 0)); });
+        const v = `${a.pct ?? '—'}`, vf = font(700, 22), pf = font(700, 12);
+        g.font = vf; const vw = g.measureText(v).width; g.font = pf; const pw = g.measureText('%').width;
+        const vx = x + cw / 2 - (vw + pw + 1) / 2, vy = yy + (withMark ? 52 : 50);
+        g.textAlign = 'left'; g.fillStyle = mk === 'miss' ? C.ink2 : C.ink;
+        g.font = vf; g.fillText(v, vx, vy); g.font = pf; g.fillText('%', vx + vw + 1, vy);
       });
+      if (withMark && mk !== 'none') pill(mk === 'hit' ? '✓ 성공' : '✕ 실패', x + cw / 2, yy + 60, font(700, 11), mk === 'hit' ? C.pri : C.paper2, mk === 'hit' ? '#fff' : C.ink2, 18, 9);
     });
-    y += Math.ceil(cells.length / cols) * (ch + gap);
+    y += Math.ceil(cells.length / cols) * (ch + gap) - gap;
   };
-  heading(m.rank.guessed ? `끌림 12가지 한눈에 · 성공 ${m.rank.hits} / 실패 ${m.rank.guessed - m.rank.hits}` : '끌림 12가지 한눈에');
-  y += 4; grid(m.all, 4, true);
-  rule();
+  card(() => {
+    txt('끌림 12가지 한눈에', X, y + 15, font(700, 15.5), C.ink);
+    if (m.rank.guessed) {
+      const f = font(700, 11.5), w1 = tw(`✓ 성공 ${m.rank.hits}`, f) + 18;
+      pill(`✕ 실패 ${m.rank.guessed - m.rank.hits}`, X + IW - (tw(`✕ 실패 ${m.rank.guessed - m.rank.hits}`, f) + 18), y + 1, f, C.paper2, C.ink2, 21, 9, 'left');
+      pill(`✓ 성공 ${m.rank.hits}`, X + IW - (tw(`✕ 실패 ${m.rank.guessed - m.rank.hits}`, f) + 18) - 6 - w1, y + 1, f, C.priSoft, C.priInk, 21, 9, 'left');
+    }
+    y += 32;
+    grid(m.all, 4, true);
+  });
 
-  // 5) 숨겨진 마음
-  if (m.hidden.length) {
-    heading('숨겨진 마음');
-    y += 4; grid(m.hidden, 3, false);
-    rule();
-  }
+  // 6) 숨겨진 마음
+  if (m.hidden.length) card(() => { head('숨겨진 마음'); y += 2; grid(m.hidden, 3, false); });
 
-  // 6) 아직 하지 못한 말
+  // 7) 아직 하지 못한 말: 흰색 → 옅은 장미색 카드
   if (m.deep) {
     const [ko, en] = splitEn(m.deep);
-    heading(`${m.npc}, 아직 하지 못한 말`);
-    para(`“${ko}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6);
-    if (en) para(en, 12, { color: INK2 }, W - P * 2, 1.5);
+    card(() => {
+      txt('“', W / 2, y + 40, font(700, 52, SERIF), 'rgba(224,82,143,.4)', 'center'); y += 34;
+      txt(`${m.npc}, 아직 하지 못한 말`, W / 2, y + 12, font(700, 12), C.priInk, 'center'); y += 26;
+      para(ko, X + 6, IW - 12, font(700, 17.5, SERIF), 17.5, C.ink, 1.65, 'center');
+      if (en) { y += 4; para(en, X + 10, IW - 20, font(400, 12.5, BODY, true), 12.5, C.ink2, 1.55, 'center'); }
+    }, { border: C.priLine, grad: (g, top, h) => { const gr = g.createLinearGradient(0, top, 0, top + h); gr.addColorStop(.3, '#ffffff'); gr.addColorStop(1, C.priSoft); return gr; } });
   }
-  y += 10;
-  const H = Math.ceil(y + P);
 
+  const H = Math.ceil(y - 12 + P);
   const c = document.createElement('canvas');
   c.width = W * S; c.height = H * S;
   const g = c.getContext('2d');
   g.scale(S, S);
-  g.fillStyle = '#fbf7f1'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#3d2c52'; g.lineWidth = 2; g.strokeRect(8, 8, W - 16, H - 16);
+  g.fillStyle = C.paper; g.fillRect(0, 0, W, H);
   g.textBaseline = 'alphabetic';
   ops.forEach((op) => op(g));
   return c;
