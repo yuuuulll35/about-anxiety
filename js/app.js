@@ -426,8 +426,8 @@ function setPhase(p) {
       hangEl(ANXIETY.find((d) => !st.poured.has(d.key))?.key ?? ANXIETY[0].key).classList.add('coach');
       break;
     case 'stir':
-      say('이제 <b>솥 안을 빙글빙글</b> 저어 봐!');
-      act(null);
+      say('이제 솥을 저을 차례! 아래 <b>한 번에 젓기</b>를 누르면 환영 6개를 다 불러 줄게. 솥을 직접 빙글빙글 저어도 돼.');
+      act('한 번에 젓기 ▸', stirAll);
       break;
     case 'seal':
       say('마지막 병이 떠올랐어. <b>봉랍을 톡톡톡</b>!');
@@ -763,7 +763,7 @@ let stirring = false, lastA = 0, lastSwish = 0, summoning = false;
 const angleOf = (e) => { const r = pot.getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * .467)) * 2.1, e.clientX - (r.left + r.width / 2)); };
 pot.addEventListener('pointerdown', (e) => {
   if (phase === 'brew') { toast('재료를 모두 부은 뒤에 저을 수 있어요.'); return; }
-  if (phase !== 'stir' || summoning) return;
+  if (phase !== 'stir' || summoning || st.auto) return;
   stirring = true; lastA = angleOf(e);
   try { pot.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
 });
@@ -782,16 +782,68 @@ const endStir = () => { stirring = false; };
 pot.addEventListener('pointerup', endStir);
 pot.addEventListener('pointercancel', endStir);
 pot.addEventListener('keydown', (e) => {
-  if ((e.key !== 'Enter' && e.key !== ' ') || phase !== 'stir' || summoning) return;
+  if ((e.key !== 'Enter' && e.key !== ' ') || phase !== 'stir' || summoning || st.auto) return;
   e.preventDefault();
   const t0 = performance.now();
   const spin = (t) => { const p = Math.min(1, (t - t0) / 700); setLadle(p * Math.PI * 2); setRing(p); if (p < 1) requestAnimationFrame(spin); else { setRing(0); summon(); } };
   requestAnimationFrame(spin);
 });
 
+/* 한 번에 젓기: 국자가 한 바퀴씩 돌 때마다 환영이 하나씩 떠오르고, 다 떠오르면 6개를 한 장에 모아 보여 준다 */
+function stirAll() {
+  if (phase !== 'stir' || summoning || st.auto) return;
+  st.auto = true; stirring = false;
+  act(null);
+  say('좋아, 내가 <b>저어 줄게</b>냥! 연기 속을 잘 봐.');
+  const rise = $('#visionRise');
+  const SPIN = reduced ? 0 : 560;
+  const one = () => {
+    const d = nextVision();
+    if (!d) { st.auto = false; setRing(0); showVisionList(); return; }
+    const t0 = performance.now();
+    rise.innerHTML = `<svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg>`;
+    rise.classList.remove('go'); void rise.offsetWidth; rise.classList.add('go');
+    sfx.vision(); buzz(20);
+    const spin = (t) => {
+      const q = SPIN ? Math.min(1, (t - t0) / SPIN) : 1;
+      setLadle(q * Math.PI * 2); setRing(q);
+      if (q < 1) { requestAnimationFrame(spin); return; }
+      st.dev.add(d.key);
+      $(`#trackStars [data-k="${d.key}"]`).classList.add('on');
+      setTimeout(one, reduced ? 0 : 140);
+    };
+    requestAnimationFrame(spin);
+  };
+  one();
+}
+
+/** 환영 6개를 한 장에. 닫으면 봉랍 단계로 */
+function showVisionList() {
+  const ag = st.attachGuess;
+  const rows = HIDDEN.filter((d) => data.items[d.key]).map((d) => {
+    const it = data.items[d.key];
+    const i = HIDDEN.indexOf(d);
+    const types = d.key === 'attach' && (it.types || []).length ? it.types.join('·') : '';
+    const verdict = d.key === 'attach' && ag ? ` <span class="vl-v ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">${(it.types || []).includes(ag) ? '짐작 ✓' : `짐작 ${esc(ag)} ✕`}</span>` : '';
+    return `<li>
+      <p class="s-no">환영 ${pad2(i + 1)} · ${esc(d.vision)}</p>
+      <h3>${esc(d.name)}${types ? ` · ${esc(types)}` : ''}${it.pct != null ? ` <small>${it.pct}%</small>` : ''}${verdict}</h3>
+      ${it.status ? `<p class="vl-status">${esc(it.status)}</p>` : ''}
+      ${it.desc ? `<p class="vl-desc">${esc(it.desc)}</p>` : ''}
+    </li>`;
+  }).join('');
+  openSheet(`
+    <div class="sheet-grab"></div>
+    <p class="s-no">연기 속 환영 · ${st.dev.size}/6</p>
+    <h2 class="s-title" id="sheetTitle">숨겨진 마음</h2>
+    <ol class="vis-list">${rows}</ol>
+    <div class="s-actions"><button type="button" class="btn primary" data-close>봉랍 깨러 가기</button></div>
+  `, true, () => { if (phase === 'stir') setPhase('seal'); });
+}
+
 function summon() {
   const d = nextVision();
-  if (!d || summoning) return;
+  if (!d || summoning || st.auto) return;
   summoning = true; stirring = false;
   const rise = $('#visionRise');
   rise.innerHTML = `<svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg>`;
