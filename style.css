@@ -990,3 +990,16 @@ body { background: #0f0b1d; }
 .say-row.ostep .mini { flex: 1; }
 .say-row.olinks { flex-wrap: wrap; gap: 4px 14px; }
 @media (max-width: 380px) { .otabs button { font-size: 12px; } }
+
+/* 답 붙여넣기 칸: 단계 안에서 말풍선 높이가 바뀌지 않도록 모든 줄의 높이를 고정한다 */
+.stage[data-step="paste"] .say { min-height: calc(1.62em * 2); }
+.say-form textarea.ans { height: 58px; min-height: 58px; max-height: 58px; resize: none; font-family: var(--f-body); font-size: 14px; line-height: 1.4; }
+.say-form textarea.ans.want { border-color: #9d2f55; box-shadow: 0 0 0 3px rgba(157, 47, 85, .14); }
+.ostat { display: flex; align-items: center; gap: 8px; height: 22px; min-width: 0; }
+.odots { display: flex; gap: 3px; flex: none; }
+.odots i { width: 22px; height: 18px; display: grid; place-items: center; border-radius: 5px; font-style: normal; font-size: 10px; font-weight: 700; color: #a99a8a; border: 1px dashed rgba(43, 32, 51, .25); }
+.odots i.on { background: #c8fa86; color: #13200a; border: 1px solid rgba(43, 32, 51, .2); }
+.omsg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; color: #b4820b; }
+.omsg.bad { color: var(--wax); }
+.say-row.olinks { min-height: 32px; align-items: center; }
+@media (max-width: 340px) { .stage[data-step="paste"] .say { min-height: calc(1.62em * 3); } }

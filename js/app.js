@@ -41,9 +41,8 @@ const cat = $('#cat');
 function say(html, quiet = false) {
   $('#catSay').innerHTML = html;
   requestAnimationFrame(avoidCat);
-  if (quiet) return; // 같은 단계를 다시 그릴 때는 말풍선·고양이를 흔들지 않는다
+  if (quiet) return; // 같은 단계를 다시 그릴 때는 말풍선을 흔들지 않는다 (고양이는 아예 들썩이지 않는다)
   const box = $('#sayBox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
-  cat.classList.remove('talk'); void cat.offsetWidth; cat.classList.add('talk');
 }
 
 const actBtn = $('#actBtn');
@@ -177,15 +176,18 @@ function goStep(s) {
   }
 }
 
-/* 레시피 받기: 주문을 한 번에 한 조각씩. 탭으로 ①②③을 오가고, 지금 탭만 보여 준다 */
-let showManual = false;
-let tabAt = null; // 지금 보고 있는 주문 조각 (null 이면 아직 안 끝난 첫 조각, -1 이면 다 모임)
+/* 레시피 받기: 주문을 한 번에 한 조각씩.
+   탭마다 [주문 복사] 하나와 [답 붙여넣기 칸] 하나. 붙여 넣는 순간 읽어서 칸을 비우고, 다 모이면 다음 탭으로 간다.
+   클립보드 읽기 권한에 기대지 않는다(아티팩트·iframe 에서는 막힌다). 말풍선 구조는 단계 안에서 늘 같아 높이가 흔들리지 않는다. */
+let tabAt = null; // 지금 탭 (null: 아직 안 끝난 첫 조각, -1: 다 모임)
+let lastMsg = ''; // 입력칸 아래 한 줄 안내
 const copiedSet = () => new Set((store.get('aa.copiedParts') || '').split('').filter(Boolean).map(Number));
 function markCopied(i) { const c = copiedSet(); c.add(i); store.set('aa.copiedParts', [...c].sort().join('')); }
 function partState(i, r) {
   const st = OOC_STEPS[i];
-  const got = st.expect.filter((c) => (c === 'DEEP' ? !!r.deepest : r.codes?.includes(c) || !!r.items[SLOT_KEY[c]])).length;
-  return { done: got === st.expect.length, got, need: st.expect.length };
+  const has = (c) => (c === 'DEEP' ? !!r.deepest : r.codes?.includes(c) || !!r.items[SLOT_KEY[c]]);
+  const got = st.expect.filter(has);
+  return { done: got.length === st.expect.length, got: got.length, need: st.expect.length, has };
 }
 const SLOT_KEY = Object.fromEntries([...ANXIETY.map((d, i) => [`A${pad2(i + 1)}`, d.key]), ...HIDDEN.map((d, i) => [`H${pad2(i + 1)}`, d.key])]);
 const NO = '①②③④';
@@ -200,73 +202,88 @@ function orderPanel(quiet = false) {
   const i = tabAt;
   const copied = copiedSet();
 
-  let head;
-  if (i === -1) head = '레시피가 다 모였다냥! <b>솥에 불</b>을 지펴.';
-  else if (states[i].done) head = `<b>${NO[i]} ${esc(OOC_STEPS[i].title)}</b>은 이미 받았어. 다시 받으려면 복사부터 해.`;
-  else if (!copied.has(i)) head = `${i === 0 && guessN() ? '나만의 물약 완성! ' : ''}<b>${NO[i]} ${esc(OOC_STEPS[i].title)}</b> 주문을 복사해서 롤플 채팅에 보내 줘.`;
-  else head = 'AI 답이 오면 그 답을 복사하고 <b>답 넣기</b>를 눌러.';
-
   const tabs = `<div class="otabs" role="tablist">${OOC_STEPS.map((stp, k) => {
     const x = states[k];
     return `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === i}" class="${x.done ? 'done' : ''}${k === i ? ' on' : ''}"><span>${x.done ? '✓' : NO[k]}</span>${esc(stp.title)}</button>`;
   }).join('')}</div>`;
 
-  const body = i === -1
-    ? '<div class="say-row"><button class="mini go wide ready" id="fBrew" type="button">솥에 불 지피기</button></div>'
-    : `<div class="say-row ostep">
-         <button class="mini wide${copied.has(i) ? '' : ' primary'}" type="button" id="fCopy">${copied.has(i) ? '다시 복사' : '📋 주문 복사'}</button>
-         <button class="mini wide${copied.has(i) ? ' primary' : ''}" type="button" id="fPaste" ${copied.has(i) || states[i].done ? '' : 'disabled'}>📥 답 넣기${states[i].got && !states[i].done ? ` (${states[i].got}/${states[i].need})` : ''}</button>
-       </div>`;
+  if (i === -1) {
+    ask('레시피가 다 모였다냥! <b>솥에 불</b>을 지펴.', `${tabs}
+      <div class="say-row"><button class="mini go wide ready" id="fBrew" type="button">솥에 불 지피기</button></div>
+      <div class="say-row olinks"><button class="link-btn" type="button" id="fClear">모인 답 비우고 다시 받기</button></div>`,
+    (f) => {
+      bindTabs(f);
+      $('#fBrew', f).addEventListener('click', () => startBrew(draftText, false));
+      $('#fClear', f).addEventListener('click', clearAll);
+    }, quiet);
+    return;
+  }
 
-  ask(head, `
-    ${tabs}
-    ${body}
-    <p class="check" id="fCheck">${total ? `모인 레시피 <span class="${total === 18 ? 'ok' : 'part'}">${total}/18</span> · 마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>${r.fuzzy ? ` · <span class="part">흐린 글자 ${r.fuzzy}칸은 보통으로 읽어</span>` : ''}` : ''}</p>
+  const x = states[i];
+  const stp = OOC_STEPS[i];
+  const head = x.done
+    ? `<b>${NO[i]}</b>은 다 받았어. 새 답을 넣으면 덮어써.`
+    : !copied.has(i)
+      ? `<b>${NO[i]} ${esc(stp.title)}</b> 주문을 복사해 채팅에 보내 줘.`
+      : 'AI 답을 <b>통째로 복사</b>해 아래 칸에 붙여 넣어.';
+  const dots = stp.expect.map((c) => `<i class="${x.has(c) ? 'on' : ''}" title="${c}">${c === 'DEEP' ? '✦' : c.slice(1)}</i>`).join('');
+
+  ask(head, `${tabs}
+    <button class="mini wide${copied.has(i) ? '' : ' primary'}" type="button" id="fCopy">${copied.has(i) ? `📋 ${NO[i]} 주문 다시 복사` : `📋 ${NO[i]} 주문 복사`}</button>
+    <textarea id="fAns" class="ans${copied.has(i) && !x.done ? ' want' : ''}" rows="2" placeholder="${NO[i]} AI 답을 여기에 붙여넣기" spellcheck="false" autocomplete="off"></textarea>
+    <div class="ostat"><span class="odots" aria-label="${x.got}/${x.need}줄 받음">${dots}</span><span class="omsg" id="fMsg">${esc(lastMsg)}</span></div>
     <div class="say-row olinks">
-      <button class="link-btn" type="button" id="fManual">${showManual ? '직접 붙여넣기 닫기' : '직접 붙여넣기'}</button>
-      ${!allDone && total >= 6 ? '<button class="link-btn" type="button" id="fBrewNow">여기까지로 끓이기</button>' : ''}
-      ${draftText.trim() ? '<button class="link-btn" type="button" id="fClear">모인 답 비우기</button>' : ''}
-    </div>
-    ${showManual ? `<textarea id="fText" rows="3" placeholder="받은 답을 여기에 붙여 넣어도 돼" spellcheck="false">${esc(draftText)}</textarea>` : ''}`,
+      <button class="link-btn" type="button" id="fBrewNow" ${!allDone && total >= 6 ? '' : 'hidden'}>여기까지로 끓이기 (${total}/18)</button>
+      <button class="link-btn" type="button" id="fClear" ${draftText.trim() ? '' : 'hidden'}>모인 답 비우기</button>
+    </div>`,
   (f) => {
-    $$('[data-tab]', f).forEach((b) => b.addEventListener('click', () => { tabAt = +b.dataset.tab; sfx.tap(); orderPanel(true); }));
-    $('#fCopy', f)?.addEventListener('click', async () => {
-      if (!(await copyText(OOC_STEPS[i].text))) { toast('복사하지 못했어요. 브라우저 권한을 확인해 주세요.'); return; }
+    bindTabs(f);
+    $('#fCopy', f).addEventListener('click', async () => {
+      if (!(await copyText(stp.text))) { toast('복사하지 못했어요. 브라우저 권한을 확인해 주세요.'); return; }
+      const first = !copied.has(i);
       markCopied(i);
       sfx.cork(); buzz(10);
       toast(`주문 ${i + 1}/${OOC_STEPS.length}을 복사했어요. 채팅에 보내 주세요.`);
-      orderPanel(true);
+      lastMsg = '';
+      if (first) orderPanel(true);
     });
-    $('#fPaste', f)?.addEventListener('click', async () => {
-      let t = '';
-      try { t = await navigator.clipboard.readText(); } catch { /* 권한 없음 */ }
-      if (!t.trim()) { showManual = true; orderPanel(true); toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); $('#fText')?.focus(); return; }
-      addAnswer(t, i);
-    });
-    $('#fManual', f).addEventListener('click', () => { showManual = !showManual; sfx.tap(); orderPanel(true); });
-    const ta = $('#fText', f);
-    if (ta) ta.addEventListener('change', () => { draftText = ta.value; store.set('aa.text', draftText); tabAt = null; orderPanel(true); });
-    $('#fBrew', f)?.addEventListener('click', () => startBrew(draftText, false));
-    $('#fBrewNow', f)?.addEventListener('click', () => startBrew(draftText, false));
-    $('#fClear', f)?.addEventListener('click', () => { draftText = ''; store.set('aa.text', ''); store.set('aa.copiedParts', ''); tabAt = null; orderPanel(true); });
+    const ta = $('#fAns', f);
+    let t0 = 0;
+    const take = () => { clearTimeout(t0); if (ta.value.trim()) addAnswer(ta.value, i); };
+    // 붙여 넣는 순간 바로 읽는다. 손으로 친 경우엔 잠깐 멈추면 읽는다.
+    ta.addEventListener('paste', () => setTimeout(take, 0));
+    ta.addEventListener('input', () => { clearTimeout(t0); t0 = setTimeout(take, 900); });
+    $('#fBrewNow', f).addEventListener('click', () => startBrew(draftText, false));
+    $('#fClear', f).addEventListener('click', clearAll);
   }, quiet);
 }
+function bindTabs(f) {
+  $$('[data-tab]', f).forEach((b) => b.addEventListener('click', () => { tabAt = +b.dataset.tab; lastMsg = ''; sfx.tap(); orderPanel(true); }));
+}
+function clearAll() {
+  draftText = ''; store.set('aa.text', ''); store.set('aa.copiedParts', ''); tabAt = null; lastMsg = '';
+  sfx.tap(); orderPanel(true);
+}
 
+/** 붙여 넣은 답을 모은 답에 더한다. 입력칸은 다시 그리면서 비워진다. */
 function addAnswer(t, i) {
-  const before = parseAnalysis(draftText);
   const r1 = parseAnalysis(t);
-  if (!r1.found && !r1.deepest) { toast('레시피 줄을 찾지 못했어요. AI 답의 코드블록을 복사해 주세요.'); return; }
+  if (r1.error || (!r1.found && !r1.deepest)) {
+    const m = $('#fMsg');
+    if (m) { m.textContent = '레시피 줄을 못 찾았어. AI 답의 코드블록을 통째로 붙여 넣어 줘.'; m.className = 'omsg bad'; }
+    return;
+  }
   draftText = (draftText.trim() ? draftText.trim() + '\n\n' : '') + t.trim();
   store.set('aa.text', draftText);
   const after = parseAnalysis(draftText);
-  const gained = after.found - (before.error ? 0 : before.found);
   sfx.plop(); buzz(14);
   const exp = OOC_STEPS[i]?.expect || [];
-  const miss = exp.filter((c) => (c === 'DEEP' ? !r1.deepest : !r1.codes?.includes(c)));
-  toast(miss.length && exp.length ? `${exp.length - miss.length}/${exp.length}줄을 넣었어요. 빠진 줄: ${miss.join(', ')}` : `레시피 ${gained > 0 ? gained : r1.found}줄을 넣었어요.`);
+  const miss = exp.filter((c) => (c === 'DEEP' ? !r1.deepest : !r1.codes?.includes(c) && !r1.items[SLOT_KEY[c]]));
   const stepDone = partState(i, after).done;
-  if (stepDone) tabAt = null; // 다음 조각으로 넘어간다
-  orderPanel(!stepDone);
+  lastMsg = stepDone ? '' : `${exp.length - miss.length}/${exp.length}줄 받았어. 빠진 줄: ${miss.join(', ')}`;
+  toast(stepDone ? `${NO[i]} ${OOC_STEPS[i].title} 다 받았어요!` : `${exp.length - miss.length}/${exp.length}줄을 넣었어요.`);
+  if (stepDone) tabAt = null; // 다음 조각으로
+  orderPanel(true);
 }
 
 /* 튜토리얼: 한 줄씩, 말하는 대상을 비춘다 */
@@ -414,8 +431,10 @@ $('#bookBtn').addEventListener('click', () => openBook(lastModel ? 'recipe' : 'm
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {
     const ta = document.createElement('textarea');
-    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-    (book.open ? book : document.body).appendChild(ta); ta.select();
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+    (book.open ? book : document.body).appendChild(ta);
+    ta.focus({ preventScroll: true }); ta.select();
     let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
     ta.remove(); return ok;
   }
@@ -870,8 +889,8 @@ function avoidCat() {
     const hatTop = $('.cat-hatg').getBoundingClientRect().top - duckPx;
     const catLeft = cr.left;
     if (!(br.right <= catLeft + cr.width * .15 || br.bottom <= hatTop)) {
-      // 모자 끝이 말풍선 아래로 내려갈 만큼 내린다 (최대: 귀 끝만 보이게)
-      need = Math.min(br.bottom - hatTop + 10, cr.height * .86);
+      // 겹치면 늘 같은 깊이(귀 끝만 보이게)로 숨는다. 말풍선 높이가 바뀌어도 고양이는 그대로다
+      need = cr.height * .86;
     }
   }
   need = Math.max(0, Math.round(need));
@@ -882,6 +901,11 @@ function avoidCat() {
 }
 window.addEventListener('resize', () => requestAnimationFrame(avoidCat));
 new ResizeObserver(() => avoidCat()).observe($('#sayBox'));
+
+/* 무대는 스크롤되지 않는다. 브라우저가 포커스를 따라 밀어 올려도 바로 제자리로 돌린다 */
+[stage, $('.floor'), document.body, document.documentElement].forEach((el) => {
+  el.addEventListener('scroll', () => { if (el.scrollTop || el.scrollLeft) { el.scrollTop = 0; el.scrollLeft = 0; } });
+});
 
 /* ───────── 시작 ───────── */
 buildHangs();
