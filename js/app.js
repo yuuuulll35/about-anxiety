@@ -6,7 +6,7 @@ import { icon, LANG_ICON } from './icons.js?v=40';
 import { cauldronSVG, RIM } from './cauldron.js?v=40';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
 import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=43';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=42';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=44';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
