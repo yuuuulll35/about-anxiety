@@ -6,7 +6,7 @@ import { FILM_ICONS } from './icons.js?v=27';
 import { cauldronSVG, RIM } from './cauldron.js?v=27';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
 import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=27';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=29';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=30';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -449,7 +449,8 @@ function setPhase(p) {
       act('귀찮으면 대신 저어 줄게', stirAll, true);
       break;
     case 'seal':
-      say('마지막 병이 떠올랐어. <b>봉랍을 톡톡톡</b>!');
+      say(`마지막 병이 떠올랐어. 이 병엔 ${esc(josa(npc, '이', '가'))}${pc ? ` ${esc(pc)}에게` : ''} <b>아직 하지 못한 말</b>이 봉해져 있어. 빨간 <b>봉랍을 세 번 톡톡톡</b> 두드려서 깨 봐!`);
+      $('#flaskTag').innerHTML = `<b>${esc(josa(npc, '이', '가'))} 아직 하지 못한 말</b><small>봉랍을 3번 톡톡톡</small>`;
       act(null);
       break;
     case 'done':
@@ -905,17 +906,21 @@ function showVision(key) {
   const d = HIDDEN[i];
   const it = data.items[key];
   const left = HIDDEN.filter((x) => !st.dev.has(x.key)).length;
-  const quad = key === 'attach'
-    ? `<div class="quad" role="img" aria-label="사랑의 언어: ${esc((it.types || []).join(', ') || it.tag || '판독')}">${ATTACH_TYPES.map((t) => `<span class="${(it.types || []).includes(t) ? 'on' : ''}">${t}</span>`).join('')}</div>`
-    : '';
   const ag = st.attachGuess;
+  // 사랑의 언어: 다섯 가지를 한 줄 알약으로. 실제 답은 채우고, 내 예상에는 작은 표시
+  const quad = key === 'attach'
+    ? `<div class="langs" role="img" aria-label="사랑의 언어: ${esc((it.types || []).join(', ') || it.tag || '알 수 없음')}">${ATTACH_TYPES.map((t) => {
+      const real = (it.types || []).includes(t), mine = ag === t;
+      return `<span class="lang${real ? ' on' : ''}${mine ? ' mine' : ''}">${real ? '✓ ' : ''}${t}${mine ? '<small>내 예상</small>' : ''}</span>`;
+    }).join('')}</div>`
+    : '';
   openSheet(`
     <div class="sheet-grab"></div>
     <div class="s-top">
       <div>
         <p class="s-no">환영 ${pad2(i + 1)} · ${esc(d.vision)}</p>
         <h2 class="s-title" id="sheetTitle">${esc(d.name)}</h2>
-        <p class="s-sub">${esc(d.hint)}</p>
+        <p class="s-sub">${key === 'attach' ? `${esc(josa(npc, '이', '가'))} 사랑을 표현하는 방식` : esc(d.hint)}</p>
       </div>
       ${it.pct != null ? `<p class="s-pct" data-to="${it.pct}">0<small>%</small></p>` : ''}
     </div>
@@ -939,7 +944,8 @@ flaskBtn.addEventListener('click', () => {
   flaskBtn.classList.remove('knock'); void flaskBtn.offsetWidth; flaskBtn.classList.add('knock');
   if (st.knocks < 3) {
     sfx.knock(); buzz(15);
-    say(st.knocks === 1 ? '금이 갔다냥! 한 번 더.' : '거의 다 됐어… 마지막 한 번!');
+    say(st.knocks === 1 ? '금이 갔다냥! 두 번 더.' : '거의 다 됐어… 마지막 한 번!');
+    $('#flaskTag small').textContent = st.knocks === 1 ? '2번 더 톡톡' : '마지막 1번 톡';
     return;
   }
   flaskBtn.classList.add('open');

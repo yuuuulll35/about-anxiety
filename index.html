@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;700&family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=31">
 </head>
 <body>
   <div class="stage" id="stage" data-phase="title">
@@ -55,6 +55,7 @@
         <div class="hearth" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
         <div class="ignite" aria-hidden="true"><span class="ig-flash"></span><span class="ig-flames"><i class="fl1"></i><i class="fl2"></i><i class="fl3"></i><i class="fl4"></i><i class="fl5"></i><i class="fl6"></i><i class="fl7"></i></span><span class="ig-embers"><b class="e1"></b><b class="e2"></b><b class="e3"></b><b class="e4"></b><b class="e5"></b><b class="e6"></b><b class="e7"></b><b class="e8"></b><b class="e9"></b><b class="e10"></b></span><span class="ig-stamp" id="igniteStamp">레시피 완성</span></div>
         <button class="flask-btn" id="flaskBtn" type="button" aria-label="봉랍 두드리기. 세 번 두드리면 깨집니다" hidden>
+          <span class="flask-tag" id="flaskTag" aria-hidden="true"></span>
           <svg class="flask" viewBox="0 0 200 270" aria-hidden="true">
             <defs><clipPath id="flaskClip"><circle cx="100" cy="182" r="70"/></clipPath></defs>
             <rect class="f-neck" x="78" y="40" width="44" height="80" rx="6"/>
@@ -194,6 +195,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <p class="sr-only">마녀의 속마음 실험실은 롤플레이 캐릭터의 감정을 놀이처럼 읽는 곳입니다. 실제 심리 진단이 아닙니다.</p>
 
-  <script type="module" src="js/app.js?v=29"></script>
+  <script type="module" src="js/app.js?v=31"></script>
 </body>
 </html>
