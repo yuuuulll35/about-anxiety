@@ -772,3 +772,7 @@ body { background: #0f0b1d; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .stage[data-phase="stir"]:not(.stirred) .stir-hint { display: inline-flex; }
 .act-btn.sub { min-height: 40px; padding: 6px 16px; font-size: 14px; background: rgba(20, 14, 38, .7); color: var(--mist); border-color: rgba(255, 255, 255, .25); box-shadow: none; animation: none; }
+
+/* 재료 카드 버튼: 이전 30 · 다음 70 */
+.s-actions.ing-nav { display: grid; grid-template-columns: 3fr 7fr; }
+.s-actions.ing-nav .btn { width: auto; min-width: 0; }

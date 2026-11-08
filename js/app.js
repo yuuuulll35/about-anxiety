@@ -6,7 +6,7 @@ import { FILM_ICONS } from './icons.js?v=27';
 import { cauldronSVG, RIM } from './cauldron.js?v=27';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
 import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=27';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=28';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=29';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -246,7 +246,7 @@ function orderPanel(quiet = false) {
       if (!(await copyText(stp.text))) { toast('복사하지 못했어요. 브라우저 권한을 확인해 주세요.'); return; }
       const first = !copied.has(i);
       markCopied(i);
-      sfx.cork(); buzz(10);
+      sfx.page(); buzz(10);
       toast(`주문 ${i + 1}/${OOC_STEPS.length}을 복사했어요. 채팅에 보내 주세요.`);
       lastMsg = '';
       if (first) orderPanel(true);
@@ -405,7 +405,7 @@ function onHang(key) {
   if (phase === 'title') { toast(step === 'intro' ? '먹물의 설명을 먼저 들어 줘.' : '먼저 이름부터 알려 줘.'); return; }
   if (phase === 'guess') {
     if (step !== 'guess') { step = 'guess'; store.set('aa.step', 'guess'); }
-    sfx.tap();
+    sfx.glass(ANXIETY.findIndex((d) => d.key === key) % 7);
     guessAsk(key);
     return;
   }
@@ -464,14 +464,14 @@ const book = $('#book');
 function openBook(page) {
   showPage(page);
   if (!book.open) book.showModal();
-  sfx.cork();
+  sfx.page();
 }
 function showPage(page) {
   $$('.page', book).forEach((p) => p.classList.toggle('on', p.dataset.page === page));
   $$('.ribbons button').forEach((b) => b.setAttribute('aria-current', b.dataset.page === page ? 'page' : 'false'));
   book.querySelector('.book-inner').scrollTop = 0;
 }
-$$('.ribbons button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); sfx.tap(); }));
+$$('.ribbons button').forEach((b) => b.addEventListener('click', () => { showPage(b.dataset.page); sfx.page(); }));
 $('[data-book-close]').addEventListener('click', () => book.close());
 book.addEventListener('click', (e) => { if (e.target === book) book.close(); });
 $('#bookBtn').addEventListener('click', () => openBook(lastModel ? 'recipe' : 'menu'));
@@ -511,8 +511,7 @@ function ignite(found, then) {
   say(found >= 18 ? '레시피 18줄이 다 모였다! <b>불 붙인다냥!</b>' : `레시피 ${found}줄로 <b>불 붙인다냥!</b>`);
   $('#igniteStamp').textContent = found >= 18 ? '레시피 완성' : `레시피 ${found}/18`;
   stage.classList.remove('igniting'); void stage.offsetWidth; stage.classList.add('igniting');
-  sfx.crack(); buzz(40);
-  setTimeout(() => sfx.plop(), 500);
+  sfx.ignite(); buzz(40);
   setTimeout(() => { stage.classList.remove('igniting'); igniting = false; then(); }, 1600);
 }
 
