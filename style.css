@@ -13,7 +13,7 @@ html, body { height: 100%; }
 body { margin: 0; overflow: hidden; position: fixed; inset: 0; overscroll-behavior: none; font-family: var(--f-body); font-size: 16px; line-height: 1.6; color: var(--mist); background: var(--night); -webkit-tap-highlight-color: transparent; }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--pri-light); outline-offset: 2px; }
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
@@ -1095,3 +1095,11 @@ body { background: #0f0b1d; }
 .rc-deep p.rc-deep-en { position: relative; margin: 10px auto 0; max-width: 32em; font-family: var(--f-body); font-size: 13px; font-style: italic; font-weight: 400; line-height: 1.55; color: var(--ink-2); }
 .page h2 { font-family: var(--f-body); font-weight: 700; font-size: 22px; letter-spacing: -.01em; }
 .rc-deep-mark { position: static; translate: none; display: block; height: 30px; margin: -4px 0 2px; font-size: 56px; line-height: 1; color: color-mix(in srgb, var(--pri) 40%, transparent); }
+
+/* 포커스 링: 버튼 모양(둥근 모서리)은 그대로 두고 그 둘레에 얇은 링만. 마우스·터치로 쓰는 중엔 버튼 링을 숨기고 키보드(Tab)일 때만 보인다 */
+:focus-visible { outline: 2px solid var(--pri-light); outline-offset: 2px; }
+.say-box :focus-visible, .book :focus-visible, .sheet :focus-visible, .scroll-dlg :focus-visible { outline-color: var(--pri); }
+html.pointer :focus-visible:not(input):not(textarea) { outline: none; }
+/* 말풍선 입력 칸은 스크롤 영역이라 바깥 링이 잘린다: 버튼 안쪽에 링 */
+.say-form button:focus-visible { outline-offset: -4px; }
+.say-form .mini.primary:focus-visible, .say-form .mini.go:focus-visible { outline-color: rgba(255, 255, 255, .95); }
