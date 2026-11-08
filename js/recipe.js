@@ -23,7 +23,7 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
   L.push({ t: 'row', k: '실험일', v: date });
   L.push({ t: 'row', k: '달의 위상', v: moon.label });
   L.push({ t: 'hr' });
-  L.push({ t: 'sec', s: '재료 (의식 아래 불안)' });
+  L.push({ t: 'sec', s: '재료 (끌리는 이유)' });
   for (const d of ANXIETY) {
     const it = data.items[d.key];
     const g = guesses[d.key];
@@ -31,7 +31,7 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
     L.push({ t: 'row', k: d.ing, v: it && it.pct != null ? `${it.pct}방울${mark}` : '—', dot: d.color });
   }
   L.push({ t: 'hr' });
-  L.push({ t: 'sec', s: '연기 속 환영 (숨겨진 심리)' });
+  L.push({ t: 'sec', s: '연기 속 환영 (숨겨진 마음)' });
   for (const d of HIDDEN) {
     const it = data.items[d.key];
     let v = '—';
@@ -47,8 +47,8 @@ export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null,
     const vals = ranked.map((d) => data.items[d.key].pct);
     L.push({ t: 'row', k: '평균 농도', v: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) + '%', big: true });
     const top = ranked[0], low = ranked[ranked.length - 1];
-    L.push({ t: 'row', k: '가장 진한 재료', v: `${top.name.replace(/ ?(불안도|염려도)$/, '')} ${data.items[top.key].pct}%` });
-    L.push({ t: 'row', k: '가장 옅은 재료', v: `${low.name.replace(/ ?(불안도|염려도)$/, '')} ${data.items[low.key].pct}%` });
+    L.push({ t: 'row', k: '가장 진한 재료', v: `${top.name.replace(/ ?끌림$/, '')} ${data.items[top.key].pct}%` });
+    L.push({ t: 'row', k: '가장 옅은 재료', v: `${low.name.replace(/ ?끌림$/, '')} ${data.items[low.key].pct}%` });
   }
   L.push({ t: 'row', k: '진짜와 같은 병', v: guessed ? `${hits}/${guessed}` : '—' });
   L.push({ t: 'row', k: '마녀 등급', v: witchRank(guessed, hits), big: true });

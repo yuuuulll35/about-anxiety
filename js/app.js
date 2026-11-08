@@ -162,7 +162,7 @@ function goStep(s) {
       break;
     case 'attach':
       setPhase('guess');
-      ask('하나만 더! 애착 유형은?',
+      ask(`하나만 더! ${esc(josa(npc, '은', '는'))} 사랑을 주로 어떻게 표현할까?`,
         `<div class="chips">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${t}</button>`).join('')}<button type="button" data-at="" class="ghost">모르겠어</button></div>`,
         (f) => $$('[data-at]', f).forEach((b) => b.addEventListener('click', () => {
           G.attach = b.dataset.at || null; saveGuess(); sfx.knock(); buzz(10); goStep('ooc');
@@ -260,7 +260,7 @@ function addAnswer(t, i) {
 /* 튜토리얼: 한 줄씩, 말하는 대상을 비춘다 */
 const INTRO = [
   { t: '어서 와, 의뢰인! 여긴 <b>마녀의 속마음 실험실</b>. 나는 조수 고양이 <b>먹물</b>이다냥.' },
-  { t: '여기선 캐릭터의 <b>속마음</b>을 물약으로 끓여. 천장에 매달린 <b>병 12개</b>가 마음속 불안 12가지야.', f: 'rack' },
+  { t: '여기선 캐릭터의 <b>속마음</b>을 물약으로 끓여. 오늘 끓일 건 <b>사랑의 묘약</b>! 천장에 매달린 <b>병 12개</b>가 마음이 끌리는 이유 12가지야.', f: 'rack' },
   { t: '먼저 네 감으로 병마다 농도를 골라 <b>나만의 물약</b>을 만들어 봐. 정답은 없어!', f: 'rack' },
   { t: '그다음 <b>주문서</b>의 주문(OOC)을 롤플 채팅에 보내면, AI가 <b>진짜 레시피</b>를 알려 줘.', f: 'book' },
   { t: '받아 온 레시피로 이 솥에 <b>진짜 물약</b>을 끓이면, 네 물약과 얼마나 같은지 보여 줄게.', f: 'pot' },
@@ -284,7 +284,8 @@ function introLine() {
 const P = () => pc || '상대';
 function qText(d) {
   const p = P();
-  return d.q.replace('{P가}', josa(p, '이', '가')).replace('{P를}', josa(p, '을', '를')).replace('{P에게}', p + '에게');
+  return d.q.replace('{P가}', josa(p, '이', '가')).replace('{P를}', josa(p, '을', '를')).replace('{P와}', josa(p, '과', '와'))
+    .replace(/\{P(에게서|에게|의)?\}/g, (_, t = '') => p + t);
 }
 
 function guessIntro() {
@@ -712,7 +713,7 @@ function showVision(key) {
   const it = data.items[key];
   const left = HIDDEN.filter((x) => !st.dev.has(x.key)).length;
   const quad = key === 'attach'
-    ? `<div class="quad" role="img" aria-label="애착 유형: ${esc((it.types || []).join(', ') || it.tag || '판독')}">${ATTACH_TYPES.map((t) => `<span class="${(it.types || []).includes(t) ? 'on' : ''}">${t}</span>`).join('')}</div>`
+    ? `<div class="quad" role="img" aria-label="사랑의 언어: ${esc((it.types || []).join(', ') || it.tag || '판독')}">${ATTACH_TYPES.map((t) => `<span class="${(it.types || []).includes(t) ? 'on' : ''}">${t}</span>`).join('')}</div>`
     : '';
   const ag = st.attachGuess;
   openSheet(`
@@ -759,7 +760,7 @@ function openScroll() {
   $('#deepTitle').textContent = dp && dp.title ? `“${dp.title}”` : '';
   $('#toRecipe').hidden = true;
   scrollDlg.showModal();
-  typeText($('#deepBody'), dp ? dp.body : 'AI 답변에서 가장 깊은 불안을 찾지 못했어요. 답변 끝에 [DEEPEST ANXIETY] 줄을 넣어 다시 받아 보세요.', () => { $('#toRecipe').hidden = false; });
+  typeText($('#deepBody'), dp ? dp.body : 'AI 답변에서 아직 하지 못한 말을 찾지 못했어요. 세 번째 주문의 답 끝에 DEEP 줄이 있는지 확인해 보세요.', () => { $('#toRecipe').hidden = false; });
 }
 $('#toRecipe').addEventListener('click', () => { scrollDlg.close(); });
 scrollDlg.addEventListener('close', () => {

@@ -28,8 +28,8 @@ test('조사 과/와', () => {
 
 test('물약 이름', () => {
   const d = (k) => ANXIETY.find((x) => x.key === k);
-  assert.equal(potionName([d('aftermath'), d('health')]), '연기와 체온계의 묘약');
-  assert.equal(potionName([d('burden'), d('abandon')]), '깃털과 발소리의 묘약');
+  assert.equal(potionName([d('ease'), d('kind')]), '담요와 찻잔의 묘약');
+  assert.equal(potionName([d('fragile'), d('danger')]), '유리구슬과 장미의 묘약');
 });
 
 test('달의 위상: 2024-01-11 은 삭, 2024-01-25 는 보름', () => {

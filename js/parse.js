@@ -1,6 +1,6 @@
 // AI 답변(마크다운 섞인 자유 텍스트)을 항목 단위로 읽는다.
 // 기대 형식:
-//   * 건강 염려도 72%
+//   * 외모 끌림 72%
 //      * 상태값: ...
 //      * 설명: ...
 // 굵게(**), 번호(1.), 글머리(- * • ·), 제목(#), 콜론 위치가 달라도 읽는다.
@@ -39,7 +39,7 @@ function matchItem(body) {
   return best && best.def;
 }
 
-const DEEP_RE = /(DEEPEST|가장\s*깊은\s*불안|가장\s*깊은\s*곳|인정하기\s*싫어)/i;
+const DEEP_RE = /(DEEPEST|UNSAID|가장\s*깊은\s*(?:불안|곳|마음)|하지\s*못한\s*(?:말|한\s*마디)|인정하기\s*싫어)/i;
 const NPC_RE = /^\[?\s*(?:NPC|분석\s*대상|대상)\s*\]?\s*[:：]?\s*(.+)$/i;
 const PC_RE = /^\[?\s*PC\s*\]?\s*[:：]?\s*(.+)$/i;
 
@@ -47,7 +47,7 @@ const PC_RE = /^\[?\s*PC\s*\]?\s*[:：]?\s*(.+)$/i;
  * @param {string} raw
  * @returns {{npc:string|null, pc:string|null, items:Record<string, any>, deepest:{title:string, body:string}|null, found:number}}
  */
-/* 짧은 물약 코드:  A01=81|상태값|설명 · H03=혼란형 70|… · NPC=…|PC=… · DEEP=…|… */
+/* 짧은 물약 코드:  A01=81|상태값|설명 · H03=스킨십 70|… · NPC=…|PC=… · DEEP=…|… */
 const CODE_RE = /^\s*[*\-•>]*\s*\**\s*(A|H)\s*0?(\d{1,2})\s*\**\s*[=:：]\s*(.+)$/i;
 function parseCompact(text) {
   const items = {};
@@ -207,12 +207,12 @@ function parseLong(raw) {
       if (p && p[1].length <= 30) { pc = p[1].trim(); continue; }
     }
 
-    // 가장 깊은 불안 구역 시작: 제목처럼 생긴 줄에서만 (설명 속 문장은 무시)
+    // DEEP(하지 못한 한 마디) 구역 시작: 제목처럼 생긴 줄에서만 (설명 속 문장은 무시)
     const headish = plain.length <= 45 || /^\[?\s*(DEEPEST|가장\s*깊은)/i.test(plain);
     if (headish && DEEP_RE.test(plain) && !/^(상태값|설명)/.test(plain)) {
       cur = null; field = null;
       deep = { lines: [] };
-      // "가장 깊은 불안: 내용" 처럼 같은 줄에 내용이 있으면 살린다
+      // "하지 못한 한 마디: 내용" 처럼 같은 줄에 내용이 있으면 살린다
       const ci = plain.search(/[:：]/);
       if (ci > -1 && DEEP_RE.test(plain.slice(0, ci))) {
         const after = plain.slice(ci + 1).trim();
@@ -221,7 +221,7 @@ function parseLong(raw) {
       continue;
     }
     if (deep) {
-      // 깊은 불안 뒤에 다시 대괄호 제목이 나오면 끝
+      // DEEP 구역 뒤에 다시 대괄호 제목이 나오면 끝
       if (/^\[[A-Z _]+\]$/.test(plain)) { deep.done = true; continue; }
       if (!deep.done) deep.lines.push(plain.replace(/^(상태값|설명|제목|내용)\s*[:：]\s*/, ''));
       continue;
@@ -240,7 +240,7 @@ function parseLong(raw) {
     const def = matchItem(plain);
     if (def && plain.length <= 80) {
       const pct = plain.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
-      // 머리 뒤에 붙은 꼬리(예: "애착 유형 불안형 70%")
+      // 머리 뒤에 붙은 꼬리(예: "사랑의 언어 스킨십 70%")
       const tail = plain
         .replace(/\d{1,3}(?:\.\d+)?\s*%/, '')
         .replace(new RegExp('^\\s*' + def.name.replace(/\s+/g, '\\s*')), '')
@@ -268,7 +268,7 @@ function parseLong(raw) {
     }
   }
 
-  // 애착 유형 이름 찾기
+  // 사랑의 언어 이름 찾기
   const at = items.attach;
   if (at) {
     // 머리 줄에 적힌 유형이 우선. 없으면 본문에서 가장 먼저 나온 유형 하나.

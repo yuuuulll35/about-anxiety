@@ -1,5 +1,5 @@
 // 물약 코드 MUL-XXXX-XXXX-XXXX-XXXX-XXXX
-// 자리 1~12: A01~A12 단계(0~9), 13~18: H01~H06 단계, 19: 애착 유형, 20: 임의 문자.
+// 자리 1~12: A01~A12 단계(0~9), 13~18: H01~H06 단계, 19: 사랑의 언어, 20: 임의 문자.
 // 각 자리 표의 index = 단계. 채팅에서는 수치가 보이지 않고 사이트에서만 풀린다.
 import { ANXIETY, HIDDEN } from './items.js';
 
@@ -7,7 +7,7 @@ export const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // O I L 0 1 제외
 // 모든 자리가 같은 표를 쓴다 (OOC 를 1,500자 안에 넣기 위해)
 export const ROW = 'Q7MRXK9BWT';
 export const ROWS = Array(18).fill(ROW);
-export const TYPE_CODE = { 안정형: 'S', 불안형: 'N', 회피형: 'V', 혼란형: 'J' };
+export const TYPE_CODE = { '다정한 말': 'W', '함께하는 시간': 'T', 선물: 'G', '챙겨 주기': 'C', 스킨십: 'S' };
 const TYPE_OF = Object.fromEntries(Object.entries(TYPE_CODE).map(([k, v]) => [v, k]));
 export const SLOTS = [
   ...ANXIETY.map((d, i) => ({ code: `A${String(i + 1).padStart(2, '0')}`, def: d })),
@@ -18,7 +18,7 @@ export const SLOTS = [
 export const levelToPct = (lv) => lv * 10 + 5;
 export const MAX_FUZZY = 4;
 
-/** levels: 18개 0~9, type: '혼란형' 등 */
+/** levels: 18개 0~9, type: '스킨십' 등 */
 export function encode(levels, type, noise = 'Q') {
   const chars = levels.map((lv, i) => ROWS[i][lv]);
   chars.push(TYPE_CODE[type] || 'S', noise);
@@ -46,5 +46,5 @@ export function decode(text) {
 
 /** OOC 에 넣을 표 */
 export function tableText() {
-  return `${[...ROW].map((c, lv) => `${lv}=${c}`).join(' ')}\n애착: ${Object.entries(TYPE_CODE).map(([k, v]) => `${k}=${v}`).join(' ')}`;
+  return `${[...ROW].map((c, lv) => `${lv}=${c}`).join(' ')}\n사랑의 언어: ${Object.entries(TYPE_CODE).map(([k, v]) => `${k}=${v}`).join(' ')}`;
 }
