@@ -1085,3 +1085,13 @@ body { background: #0f0b1d; }
 .rc-deep h4 { color: var(--point); }
 .rc-deep p { color: var(--on-sub); }
 .rc-cell-k { white-space: normal; word-break: keep-all; line-height: 1.3; min-height: 1.3em; }
+
+/* ───── 아직 하지 못한 말: 다른 카드와 같은 흰 종이, 주색은 옅게만 ───── */
+.rc-sec.rc-deep { position: relative; overflow: hidden; padding: 22px 20px 20px; text-align: center; color: var(--ink);
+  background: linear-gradient(180deg, #fff 30%, var(--pri-soft)); border: 1px solid color-mix(in srgb, var(--pri) 22%, transparent); }
+.rc-deep-mark { position: absolute; left: 50%; top: -18px; translate: -50% 0; font-family: var(--f-title); font-size: 92px; line-height: 1; color: color-mix(in srgb, var(--pri) 16%, transparent); pointer-events: none; }
+.rc-deep h4 { position: relative; margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--pri-ink); }
+.rc-deep p.rc-deep-ko { position: relative; margin: 0; font-family: var(--f-title); font-size: 18px; font-weight: 700; line-height: 1.65; color: var(--ink); word-break: keep-all; }
+.rc-deep p.rc-deep-en { position: relative; margin: 10px auto 0; max-width: 32em; font-family: var(--f-body); font-size: 13px; font-style: italic; font-weight: 400; line-height: 1.55; color: var(--ink-2); }
+.page h2 { font-family: var(--f-body); font-weight: 700; font-size: 22px; letter-spacing: -.01em; }
+.rc-deep-mark { position: static; translate: none; display: block; height: 30px; margin: -4px 0 2px; font-size: 56px; line-height: 1; color: color-mix(in srgb, var(--pri) 40%, transparent); }

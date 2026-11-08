@@ -4,6 +4,8 @@
 import { ANXIETY, HIDDEN, tierOf, TIER_LABEL } from './items.js?v=27';
 import { colorName, potionName, witchRank, hsl, josa } from './brew.js?v=27';
 
+/** "한국어. (English.)" → [한국어, 영어]. 괄호 속 번역은 아래 작은 줄로 */
+const splitEn = (t) => { const m = /^(.*?)\s*\(([^()]*[A-Za-z][^()]*)\)\s*$/.exec(t || ''); return m && /[가-힣]/.test(m[1]) ? [m[1], m[2]] : [t || '', '']; };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** 맞힌 비율 → 별 0~5 */
@@ -91,8 +93,12 @@ export function recipeHTML(m) {
     <ul class="rc-grid hid">${m.hidden.map((h) => `<li class="rc-cell"><span class="rc-cell-k">${esc(h.name)}</span><b class="rc-cell-v">${h.pct ?? '—'}<small>%</small></b></li>`).join('')}</ul>
   </section>` : ''}
 
-  ${m.deep ? `<section class="rc-sec rc-deep"><h4>${esc(m.npc)}, 아직 하지 못한 말</h4><p>“${esc(m.deep)}”</p></section>` : ''}
-  <p class="rc-foot">마음 달이는 다락방 · 놀이용 해석이에요</p>`;
+  ${m.deep ? (() => { const [ko, en] = splitEn(m.deep); return `<section class="rc-sec rc-deep">
+    <span class="rc-deep-mark" aria-hidden="true">“</span>
+    <h4>${esc(m.npc)}, 아직 하지 못한 말</h4>
+    <p class="rc-deep-ko">${esc(ko)}</p>
+    ${en ? `<p class="rc-deep-en">${esc(en)}</p>` : ''}
+  </section>`; })() : ''}`;
 }
 
 /* ───────── 저장용 PNG (폭 420px × 2배). 화면 카드와 같은 순서·내용 ───────── */
@@ -215,9 +221,13 @@ export function recipeCanvas(m) {
   }
 
   // 6) 아직 하지 못한 말
-  if (m.deep) { heading(`${m.npc}, 아직 하지 못한 말`); para(`“${m.deep}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6); }
+  if (m.deep) {
+    const [ko, en] = splitEn(m.deep);
+    heading(`${m.npc}, 아직 하지 못한 말`);
+    para(`“${ko}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6);
+    if (en) para(en, 12, { color: INK2 }, W - P * 2, 1.5);
+  }
   y += 10;
-  para('마음 달이는 다락방 · 놀이용 해석이에요', 11, { color: INK2, align: 'center' });
   const H = Math.ceil(y + P);
 
   const c = document.createElement('canvas');
