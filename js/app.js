@@ -1,12 +1,12 @@
-import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js?v=20';
-import { parseAnalysis } from './parse.js?v=20';
-import { SAMPLE } from './sample.js?v=20';
-import { OOC_STEPS } from './prompt.js?v=20';
-import { FILM_ICONS } from './icons.js?v=20';
-import { cauldronSVG, RIM } from './cauldron.js?v=20';
-import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=20';
-import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=20';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=20';
+import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js?v=27';
+import { parseAnalysis } from './parse.js?v=27';
+import { SAMPLE } from './sample.js?v=27';
+import { OOC_STEPS } from './prompt.js?v=27';
+import { FILM_ICONS } from './icons.js?v=27';
+import { cauldronSVG, RIM } from './cauldron.js?v=27';
+import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
+import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=27';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=27';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -44,9 +44,10 @@ function say(html, quiet = false) {
 
 const actBtn = $('#actBtn');
 let actFn = null;
-function act(label, fn) {
+function act(label, fn, sub = false) {
   if (!label) { actBtn.hidden = true; actFn = null; return; }
   actBtn.hidden = false; actBtn.textContent = label; actFn = fn;
+  actBtn.classList.toggle('sub', sub); // sub: 눈에 덜 띄는 보조 버튼
 }
 actBtn.addEventListener('click', () => { sfx.tap(); actFn && actFn(); });
 
@@ -435,8 +436,9 @@ function setPhase(p) {
       hangEl(ANXIETY.find((d) => !st.poured.has(d.key))?.key ?? ANXIETY[0].key).classList.add('coach');
       break;
     case 'stir':
-      say('이제 솥을 저을 차례! 아래 <b>한 번에 젓기</b>를 누르면 환영 6개를 다 불러 줄게. 솥을 직접 빙글빙글 저어도 돼.');
-      act('한 번에 젓기', stirAll);
+      stage.classList.remove('stirred');
+      say('이제 <b>솥 안을 손가락으로 빙글빙글</b> 저어 봐! 한 바퀴 돌릴 때마다 숨겨진 마음이 하나씩 떠올라.');
+      act('귀찮으면 대신 저어 줄게', stirAll, true);
       break;
     case 'seal':
       say('마지막 병이 떠올랐어. <b>봉랍을 톡톡톡</b>!');
@@ -790,6 +792,7 @@ pot.addEventListener('pointerdown', (e) => {
   if (phase === 'brew') { toast('재료를 모두 부은 뒤에 저을 수 있어요.'); return; }
   if (phase !== 'stir' || summoning || st.auto) return;
   stirring = true; lastA = angleOf(e);
+  stage.classList.add('stirred');
   try { pot.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
 });
 pot.addEventListener('pointermove', (e) => {
@@ -917,7 +920,7 @@ function showVision(key) {
     ${key === 'attach' && it.tag && !(it.types || []).length ? `<p class="s-hint">${esc(it.tag)}</p>` : ''}
     ${mindHTML(it)}
     <div class="s-actions"><button type="button" class="btn primary" data-close>${left ? `계속 젓기 (${left}개 남음)` : '닫기'}</button></div>
-  `, true, () => { if (phase === 'stir' && !nextVision()) setPhase('seal'); });
+  `, false, () => { if (phase === 'stir' && !nextVision()) setPhase('seal'); });
 }
 
 /* ───────── 봉랍 ───────── */
@@ -941,10 +944,13 @@ flaskBtn.addEventListener('click', () => {
 const scrollDlg = $('#scrollDlg');
 function openScroll() {
   const dp = data.deepest;
-  $('#deepTitle').textContent = dp && dp.title ? `“${dp.title}”` : '';
+  const title = dp && dp.title ? `“${dp.title}”` : '';
+  const body = dp ? dp.body : 'AI 답에서 아직 하지 못한 말을 찾지 못했어요. 세 번째 주문의 답 끝에 DEEP 줄이 있는지 확인해 보세요.';
   $('#toRecipe').hidden = true;
+  $('#deepTitle').textContent = ''; $('#deepBody').textContent = '';
   scrollDlg.showModal();
-  typeText($('#deepBody'), dp ? dp.body : 'AI 답변에서 아직 하지 못한 말을 찾지 못했어요. 세 번째 주문의 답 끝에 DEEP 줄이 있는지 확인해 보세요.', () => { $('#toRecipe').hidden = false; });
+  // 두루마리가 다 펼쳐진 뒤 한 마디 → 풀이 순서로 한 글자씩. 종이를 누르면 끝까지 바로 보인다.
+  typeLines([[$('#deepTitle'), title, 55], [$('#deepBody'), body, 28]], 1100, () => { $('#toRecipe').hidden = false; });
 }
 $('#toRecipe').addEventListener('click', () => { scrollDlg.close(); });
 scrollDlg.addEventListener('close', () => {
@@ -963,21 +969,28 @@ scrollDlg.addEventListener('close', () => {
   }, () => { setPhase('done'); openBook('recipe'); });
 });
 
-function typeText(el, text, done) {
-  if (reduced) { el.textContent = text; done(); return; }
-  el.textContent = ''; el.classList.add('typing');
-  let i = 0, skip = false;
+/** [요소, 글, 글자 간격ms] 를 차례로 타자 친다 */
+function typeLines(lines, delay, done) {
   const paper = $('.scroll-paper');
-  const chars = [...text];
+  let skip = false;
   const onSkip = () => { skip = true; };
-  paper.addEventListener('click', onSkip, { once: true });
+  const finish = () => { lines.forEach(([el, t]) => { el.textContent = t; el.classList.remove('typing'); }); paper.removeEventListener('click', onSkip); done(); };
+  if (reduced) { finish(); return; }
+  paper.addEventListener('click', onSkip);
+  let li = 0, i = 0;
   const tick = () => {
-    i = skip ? chars.length : i + 1;
+    if (skip) { finish(); return; }
+    const [el, text, gap] = lines[li];
+    const chars = [...text];
+    el.classList.add('typing');
+    i++;
     el.textContent = chars.slice(0, i).join('');
-    if (i < chars.length) setTimeout(tick, /[.,!?\n]/.test(chars[i - 1]) ? 180 : 32);
-    else { el.classList.remove('typing'); paper.removeEventListener('click', onSkip); done(); }
+    if (i < chars.length) { setTimeout(tick, /[.,!?…\n]/.test(chars[i - 1]) ? gap * 6 : gap); return; }
+    el.classList.remove('typing');
+    li++; i = 0;
+    if (li < lines.length) setTimeout(tick, 450); else finish();
   };
-  setTimeout(tick, 1100);
+  setTimeout(tick, delay);
 }
 
 /* ───────── 레시피 ───────── */

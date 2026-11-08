@@ -1,187 +1,209 @@
-// 물약 레시피 카드: 한 모델에서 HTML 과 저장용 캔버스를 함께 만든다.
-import { ANXIETY, HIDDEN } from './items.js?v=20';
-import { colorName, potionName, witchRank, hsl } from './brew.js?v=20';
-import { tierOf } from './items.js?v=20';
+// 레시피 카드: 이번 물약으로 알게 된 것을 한 장에 정리한다. 같은 모델로 화면용 HTML 과 저장용 PNG 를 만든다.
+//  1) 마녀 등급(내 예상이 몇 병 맞았나)  2) 끌리는 이유 TOP 3 + 속마음  3) 덜 끌리는 것 · 사랑의 언어
+//  4) 끌림 12가지 막대  5) 숨겨진 마음  6) 아직 하지 못한 말
+import { ANXIETY, HIDDEN, tierOf, TIER_LABEL } from './items.js?v=27';
+import { colorName, potionName, witchRank, hsl, josa } from './brew.js?v=27';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/** 맞힌 비율 → 별 0~5 */
+const starsOf = (guessed, hits) => (guessed ? Math.round((hits / guessed) * 5) : 0);
+const starsText = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+const who = (m) => (m.pc ? `${josa(m.npc, '이', '가')} ${m.pc}에게` : josa(m.npc, '이', '가'));
+
 export function recipeModel({ data, npc, pc, date, moon, brew, guessBrew = null, guesses = {}, attachGuess = null, guessed, hits }) {
-  const L = [];
-  const ranked = ANXIETY.filter((d) => data.items[d.key]?.pct != null)
-    .sort((a, b) => data.items[b.key].pct - data.items[a.key].pct);
-  const no = String((npc.length * 977 + date.replace(/\D/g, '') % 9973) % 10000).padStart(4, '0');
-  L.push({ t: 'no', s: `RECIPE No.${no}` });
-  L.push({ t: 'title', s: potionName(ranked) });
-  if (brew && guessBrew) {
-    L.push({ t: 'swatch2',
-      a: { color: hsl(guessBrew.h, guessBrew.s, guessBrew.l), s: `나만의 물약 · ${colorName(guessBrew)}` },
-      b: { color: hsl(brew.h, brew.s, brew.l), s: `진짜 물약 · ${colorName(brew)}` } });
-  } else if (brew) L.push({ t: 'swatch', color: hsl(brew.h, brew.s, brew.l), s: `${colorName(brew)} 물약` });
-  L.push({ t: 'hr' });
-  L.push({ t: 'row', k: '의뢰 대상', v: npc });
-  if (pc) L.push({ t: 'row', k: '의뢰인', v: pc });
-  L.push({ t: 'row', k: '실험일', v: date });
-  L.push({ t: 'row', k: '달의 위상', v: moon.label });
-  L.push({ t: 'hr' });
-  L.push({ t: 'sec', s: '재료 (끌리는 이유)' });
-  for (const d of ANXIETY) {
-    const it = data.items[d.key];
+  const items = data.items;
+  const defs = ANXIETY.filter((d) => items[d.key]?.pct != null);
+  const all = defs.map((d) => {
+    const it = items[d.key];
     const g = guesses[d.key];
-    const mark = g && it && it.pct != null ? (tierOf(it.pct) === g ? ' ✓' : ' ✕') : '';
-    L.push({ t: 'row', k: d.ing, v: it && it.pct != null ? `${it.pct}방울${mark}` : '—', dot: d.color });
-  }
-  L.push({ t: 'hr' });
-  L.push({ t: 'sec', s: '연기 속 환영 (숨겨진 마음)' });
-  for (const d of HIDDEN) {
-    const it = data.items[d.key];
-    let v = '—';
-    if (it) {
-      if (d.key === 'attach' && it.types && it.types.length) v = it.types.join('·') + (it.pct != null ? ` ${it.pct}%` : '') + (attachGuess ? (it.types.includes(attachGuess) ? ' ✓' : ' ✕') : '');
-      else if (it.pct != null) v = it.pct + '%';
-      else v = '보임';
-    }
-    L.push({ t: 'row', k: d.name, v });
-  }
-  L.push({ t: 'hr' });
-  if (ranked.length) {
-    const vals = ranked.map((d) => data.items[d.key].pct);
-    L.push({ t: 'row', k: '평균 농도', v: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) + '%', big: true });
-    const top = ranked[0], low = ranked[ranked.length - 1];
-    L.push({ t: 'row', k: '가장 진한 재료', v: `${top.name.replace(/ ?끌림$/, '')} ${data.items[top.key].pct}%` });
-    L.push({ t: 'row', k: '가장 옅은 재료', v: `${low.name.replace(/ ?끌림$/, '')} ${data.items[low.key].pct}%` });
-  }
-  L.push({ t: 'row', k: '진짜와 같은 병', v: guessed ? `${hits}/${guessed}` : '—' });
-  L.push({ t: 'row', k: '마녀 등급', v: witchRank(guessed, hits), big: true });
-  if (data.deepest) {
-    L.push({ t: 'hr' });
-    L.push({ t: 'center', s: '마지막 한 방울' });
-    L.push({ t: 'quote', s: data.deepest.title || data.deepest.body.split('\n')[0].slice(0, 70) });
-  }
-  L.push({ t: 'sigil' });
-  L.push({ t: 'center', s: '보름 전에, 혼자 있을 때 복용할 것', small: true });
-  L.push({ t: 'center', s: '* 본 레시피는 진단서가 아닙니다 *', small: true });
-  return L;
+    return { name: d.short, pct: it.pct, color: d.color, status: it.status, mark: g ? (tierOf(it.pct) === g ? 'hit' : 'miss') : null, guess: g ? TIER_LABEL[g] : null };
+  });
+  const ranked = [...all].sort((a, b) => b.pct - a.pct);
+  const lang = items.attach;
+  return {
+    no: String((npc.length * 977 + date.replace(/\D/g, '') % 9973) % 10000).padStart(4, '0'),
+    title: potionName([...defs].sort((a, b) => items[b.key].pct - items[a.key].pct)),
+    npc, pc, date, moon: moon.label,
+    real: brew ? { color: hsl(brew.h, brew.s, brew.l), name: colorName(brew) } : null,
+    mine: guessBrew ? { color: hsl(guessBrew.h, guessBrew.s, guessBrew.l), name: colorName(guessBrew) } : null,
+    rank: { label: witchRank(guessed, hits), stars: starsOf(guessed, hits), hits, guessed },
+    top: ranked.slice(0, 3),
+    low: ranked.length > 3 ? ranked[ranked.length - 1] : null,
+    lang: lang ? { types: lang.types || [], pct: lang.pct, status: lang.status, guess: attachGuess, hit: attachGuess ? (lang.types || []).includes(attachGuess) : null } : null,
+    all,
+    hidden: HIDDEN.filter((d) => d.key !== 'attach' && items[d.key]).map((d) => ({ name: d.name, pct: items[d.key].pct })),
+    deep: data.deepest ? (data.deepest.title || data.deepest.body.split('\n')[0].slice(0, 80)) : '',
+  };
 }
 
-export function recipeHTML(model) {
-  return model.map((l) => {
-    switch (l.t) {
-      case 'no': return `<div class="rc-c rc-no">${esc(l.s)}</div>`;
-      case 'title': return `<div class="rc-c rc-title">「${esc(l.s)}」</div>`;
-      case 'swatch': return `<div class="rc-swatch"><i style="background:${l.color}"></i>${esc(l.s)}</div>`;
-      case 'swatch2': return `<div class="rc-swatch two"><span><i style="background:${l.a.color}"></i>${esc(l.a.s)}</span><span class="arrow">→</span><span><i style="background:${l.b.color}"></i>${esc(l.b.s)}</span></div>`;
-      case 'center': return `<div class="rc-c"${l.small ? ' style="font-size:11px"' : ''}>${esc(l.s)}</div>`;
-      case 'hr': return '<hr class="rc-hr">';
-      case 'sec': return `<div class="rc-sec">${esc(l.s)}</div>`;
-      case 'row': return `<div class="rc-row${l.big ? ' rc-big' : ''}"><span class="k">${l.dot ? `<span class="dot" style="background:${l.dot}"></span>` : ''}${esc(l.k)}</span><span class="dots"></span><span class="v">${esc(l.v)}</span></div>`;
-      case 'quote': return `<p class="rc-quote">“${esc(l.s)}”</p>`;
-      case 'sigil': return '<div class="rc-sigil" aria-hidden="true">✶ ☾ ✶</div>';
-      default: return '';
-    }
-  }).join('');
+export function recipeHTML(m) {
+  const bar = (pct, color = '') => `<span class="rc-bar"><i style="width:${pct}%${color ? `;background:${color}` : ''}"></i></span>`;
+  const swatch = (s, label) => (s ? `<span class="rc-sw"><i style="background:${s.color}"></i>${label} · ${esc(s.name)}</span>` : '');
+  const rank = m.rank.guessed
+    ? `<div class="rc-rank">
+        <p class="rc-rank-k">마녀 등급</p>
+        <p class="rc-rank-v">${esc(m.rank.label)}</p>
+        <p class="rc-stars" aria-label="별 다섯 개 중 ${m.rank.stars}개">${starsText(m.rank.stars)}</p>
+        <p class="rc-rank-s">내 예상 <b>${m.rank.guessed}병 중 ${m.rank.hits}병</b> 맞힘</p>
+      </div>`
+    : `<div class="rc-rank none"><p class="rc-rank-k">마녀 등급</p><p class="rc-rank-v">예상 없이 끓였어요</p><p class="rc-rank-s">다음엔 병마다 먼저 예상해 보세요</p></div>`;
+  return `
+  ${rank}
+  <header class="rc-head">
+    <p class="rc-no">RECIPE No.${m.no} · ${esc(m.date)} · ${esc(m.moon)}</p>
+    <h3 class="rc-title">「${esc(m.title)}」</h3>
+    <p class="rc-who">${esc(m.npc)}${m.pc ? ` → ${esc(m.pc)}` : ''}</p>
+    <p class="rc-sws">${swatch(m.mine, '내 물약')}${swatch(m.real, '진짜 물약')}</p>
+  </header>
+
+  <section class="rc-sec">
+    <h4>${esc(who(m))} 끌리는 이유 TOP 3</h4>
+    <ol class="rc-top">${m.top.map((t, i) => `
+      <li>
+        <span class="rc-n">${i + 1}</span>
+        <div><p class="rc-line"><b>${esc(t.name)}</b><em>${t.pct}%</em></p>${bar(t.pct, t.color)}
+        ${t.status ? `<p class="rc-quote">“${esc(t.status)}”</p>` : ''}</div>
+      </li>`).join('')}
+    </ol>
+  </section>
+
+  ${m.low || m.lang ? `<section class="rc-sec rc-two">
+    ${m.low ? `<div class="rc-mini"><h4>가장 덜 끌리는 것</h4><p class="rc-line"><b>${esc(m.low.name)}</b><em>${m.low.pct}%</em></p>${m.low.status ? `<p class="rc-quote">“${esc(m.low.status)}”</p>` : ''}</div>` : ''}
+    ${m.lang ? `<div class="rc-mini"><h4>사랑의 언어</h4><p class="rc-line"><b>${esc(m.lang.types.join('·') || '알 수 없음')}</b>${m.lang.pct != null ? `<em>${m.lang.pct}%</em>` : ''}</p>
+      ${m.lang.guess ? `<p class="rc-tag ${m.lang.hit ? 'hit' : 'miss'}">${m.lang.hit ? '✓ 내 예상과 같음' : `✕ 나는 ${esc(josa(m.lang.guess, '이라고', '라고'))} 예상`}</p>` : ''}
+      ${m.lang.status ? `<p class="rc-quote">“${esc(m.lang.status)}”</p>` : ''}</div>` : ''}
+  </section>` : ''}
+
+  <section class="rc-sec">
+    <h4>끌림 12가지 한눈에 ${m.rank.guessed ? '<small>✓ 예상 적중 · ✕ 빗나감</small>' : ''}</h4>
+    <ul class="rc-all">${m.all.map((a) => `
+      <li><span class="rc-k">${esc(a.name)}</span>${bar(a.pct, a.color)}<span class="rc-v">${a.pct}%</span><span class="rc-m ${a.mark || ''}">${a.mark === 'hit' ? '✓' : a.mark === 'miss' ? '✕' : ''}</span></li>`).join('')}
+    </ul>
+  </section>
+
+  ${m.hidden.length ? `<section class="rc-sec">
+    <h4>숨겨진 마음</h4>
+    <ul class="rc-all hid">${m.hidden.map((h) => `<li><span class="rc-k">${esc(h.name)}</span>${bar(h.pct ?? 0)}<span class="rc-v">${h.pct ?? '—'}%</span></li>`).join('')}</ul>
+  </section>` : ''}
+
+  ${m.deep ? `<section class="rc-sec rc-deep"><h4>${esc(m.npc)}, 아직 하지 못한 말</h4><p>“${esc(m.deep)}”</p></section>` : ''}
+  <p class="rc-foot">마녀의 속마음 실험실 · 놀이용 해석이에요</p>`;
 }
 
-/** 저장용 PNG 캔버스 (400px 폭 × 2배) */
-export function recipeCanvas(model) {
-  const S = 2, W = 400, PAD = 26, M = 24;
-  const mono = "'Nanum Gothic Coding', monospace";
-  const disp = "'Do Hyeon', sans-serif";
-  const serif = "'Gowun Batang', serif";
-  const latin = "'Cinzel Decorative', serif";
-  const INK = '#2e2014', INK2 = '#6e5a42';
-  const c = document.createElement('canvas');
-  const g = c.getContext('2d');
-
-  const wrap = (text, font, maxW) => {
-    g.font = font;
+/* ───────── 저장용 PNG (폭 420px × 2배). 화면 카드와 같은 순서·내용 ───────── */
+export function recipeCanvas(m) {
+  const S = 2, W = 420, P = 24;
+  const BODY = "'IBM Plex Sans KR', sans-serif", SERIF = "'Gowun Batang', serif";
+  const INK = '#2b2033', INK2 = '#6e5a42', WAX = '#9d2f55';
+  const meas = document.createElement('canvas').getContext('2d');
+  const wrap = (s, font, maxW) => {
+    meas.font = font;
     const out = []; let line = '';
-    for (const ch of text) {
-      if (g.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; } else line += ch;
-    }
+    for (const ch of s) { if (meas.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; } else line += ch; }
     if (line) out.push(line);
     return out;
   };
 
-  const H_OF = { no: 18, swatch: 36, swatch2: 58, center: 19, hr: 18, sec: 24, row: 21, sigil: 42 };
-  const wrapped = {};
-  let h = PAD;
-  model.forEach((l, i) => {
-    if (l.t === 'title') { wrapped[i] = wrap(`「${l.s}」`, `26px ${disp}`, W - PAD * 2); h += wrapped[i].length * 32 + 6; }
-    else if (l.t === 'quote') { wrapped[i] = wrap(`“${l.s}”`, `14px ${serif}`, W - PAD * 2); h += wrapped[i].length * 22 + 8; }
-    else h += H_OF[l.t] || 20;
-  });
-  h += PAD;
-
-  c.width = (W + M * 2) * S; c.height = (h + M * 2) * S;
-  g.scale(S, S);
-  g.fillStyle = '#17112a'; g.fillRect(0, 0, W + M * 2, h + M * 2);
-  // 별
-  g.fillStyle = 'rgba(255,255,255,.5)';
-  for (let k = 0; k < 40; k++) { g.beginPath(); g.arc((k * 97) % (W + M * 2), (k * 53) % (h + M * 2), k % 3 ? .8 : 1.4, 0, Math.PI * 2); g.fill(); }
-  g.translate(M, M);
-
-  g.fillStyle = '#0c0816'; g.fillRect(4, 4, W, h);
-  const grad = g.createRadialGradient(W / 2, h * .4, Math.min(W, h) * .3, W / 2, h * .4, Math.max(W, h) * .7);
-  grad.addColorStop(0, '#f3e6c6'); grad.addColorStop(1, '#dcc390');
-  g.fillStyle = grad; g.fillRect(0, 0, W, h);
-  g.strokeStyle = '#0c0816'; g.lineWidth = 2.5; g.strokeRect(0, 0, W, h);
-  g.strokeStyle = '#6b4426'; g.lineWidth = 2; g.strokeRect(10, 10, W - 20, h - 20);
-
-  g.textBaseline = 'alphabetic';
-  let y = PAD;
-  model.forEach((l, i) => {
-    g.fillStyle = INK;
-    switch (l.t) {
-      case 'no':
-        g.font = `11px ${latin}`; g.fillStyle = INK2; g.textAlign = 'center'; g.fillText(l.s, W / 2, y + 12); y += 18; break;
-      case 'title':
-        g.font = `26px ${disp}`; g.textAlign = 'center';
-        wrapped[i].forEach((ln) => { g.fillText(ln, W / 2, y + 26); y += 32; }); y += 6; break;
-      case 'swatch': {
-        g.font = `bold 14px ${serif}`; g.textAlign = 'left';
-        const tw = g.measureText(l.s).width; const x0 = W / 2 - (tw + 34) / 2;
-        g.beginPath(); g.arc(x0 + 13, y + 18, 13, 0, Math.PI * 2); g.fillStyle = l.color; g.fill();
-        g.lineWidth = 2; g.strokeStyle = '#0c0816'; g.stroke();
-        g.fillStyle = INK; g.fillText(l.s, x0 + 34, y + 23); y += 36; break;
-      }
-      case 'swatch2': {
-        g.font = `bold 13px ${serif}`;
-        [[l.a, W * .27], [l.b, W * .73]].forEach(([sw, cx]) => {
-          g.beginPath(); g.arc(cx, y + 18, 14, 0, Math.PI * 2); g.fillStyle = sw.color; g.fill();
-          g.lineWidth = 2; g.strokeStyle = '#0c0816'; g.stroke();
-          g.fillStyle = INK; g.textAlign = 'center'; g.fillText(sw.s, cx, y + 50);
-        });
-        g.font = `20px ${serif}`; g.fillText('→', W / 2, y + 25);
-        y += 58; break;
-      }
-      case 'center':
-        g.font = `${l.small ? 11 : 13}px ${l.small ? mono : serif}`; g.textAlign = 'center'; g.fillStyle = l.small ? INK2 : INK;
-        g.fillText(l.s, W / 2, y + 14); y += 19; break;
-      case 'hr':
-        g.fillStyle = 'rgba(110,90,66,.6)';
-        for (let x = PAD; x < W - PAD; x += 12) { g.beginPath(); g.arc(x, y + 9, 1.5, 0, Math.PI * 2); g.fill(); }
-        y += 18; break;
-      case 'sec':
-        g.font = `16px ${disp}`; g.textAlign = 'left'; g.fillText(l.s, PAD, y + 18); y += 24; break;
-      case 'row': {
-        g.font = `${l.big ? 'bold 14px' : '13px'} ${mono}`; g.textAlign = 'left';
-        let kx = PAD;
-        if (l.dot) { g.beginPath(); g.arc(PAD + 5, y + 10, 4.5, 0, Math.PI * 2); g.fillStyle = l.dot; g.fill(); g.lineWidth = 1.5; g.strokeStyle = '#0c0816'; g.stroke(); g.fillStyle = INK; kx += 14; }
-        g.fillText(l.k, kx, y + 15);
-        const kw = g.measureText(l.k).width;
-        g.font = `bold ${l.big ? 14 : 13}px ${mono}`;
-        const vw = g.measureText(l.v).width;
-        g.textAlign = 'right'; g.fillText(l.v, W - PAD, y + 15);
-        g.save(); g.strokeStyle = 'rgba(46,32,20,.45)'; g.setLineDash([1.5, 3]); g.lineWidth = 1.5;
-        g.beginPath(); g.moveTo(kx + kw + 6, y + 12); g.lineTo(W - PAD - vw - 6, y + 12); g.stroke(); g.restore();
-        y += 21; break;
-      }
-      case 'quote':
-        g.font = `14px ${serif}`; g.textAlign = 'center';
-        wrapped[i].forEach((ln) => { g.fillText(ln, W / 2, y + 17); y += 22; }); y += 8; break;
-      case 'sigil':
-        g.font = `28px ${serif}`; g.textAlign = 'center'; g.fillStyle = '#b3262e'; g.fillText('✶ ☾ ✶', W / 2, y + 32); y += 42; break;
+  // 그리기 명령을 모으면서 높이를 잰다
+  const ops = [];
+  let y = P;
+  const draw = (fn) => ops.push(fn);
+  const rr = (g, x, yy, w, h, r) => { g.beginPath(); g.roundRect(x, yy, w, h, r); };
+  const para = (s, size, { weight = 400, font = BODY, color = INK, align = 'left' } = {}, maxW = W - P * 2, lh = 1.55) => {
+    const f = `${weight} ${size}px ${font}`;
+    for (const ln of wrap(s, f, maxW)) {
+      const yy = y + size;
+      draw((g) => { g.font = f; g.fillStyle = color; g.textAlign = align; g.fillText(ln, align === 'center' ? W / 2 : P, yy); });
+      y += size * lh;
     }
+  };
+  const row = (left, right, size, { weight = 600, color = INK, rcolor = INK, mark = null } = {}) => {
+    const yy = y + size;
+    draw((g) => {
+      g.font = `${weight} ${size}px ${BODY}`; g.textAlign = 'left'; g.fillStyle = color; g.fillText(left, P, yy);
+      g.textAlign = 'right'; g.fillStyle = rcolor; g.fillText(right, W - P - (mark ? 20 : 0), yy);
+      if (mark) { g.fillStyle = mark === 'hit' ? '#2c8a3c' : '#b3262e'; g.fillText(mark === 'hit' ? '✓' : '✕', W - P, yy); }
+    });
+  };
+  const bar = (x, yy, w, pct, color = WAX) => draw((g) => {
+    g.fillStyle = 'rgba(46,32,20,.12)'; rr(g, x, yy, w, 7, 4); g.fill();
+    g.fillStyle = color; rr(g, x, yy, Math.max(7, (w * pct) / 100), 7, 4); g.fill();
   });
+  const heading = (s) => { y += 6; para(s, 15, { weight: 700, color: WAX }); y += 2; };
+  const rule = () => { const yy = y + 6; draw((g) => { g.strokeStyle = 'rgba(46,32,20,.18)'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, yy); g.lineTo(W - P, yy); g.stroke(); }); y += 14; };
+
+  // 1) 마녀 등급
+  const boxTop = y, boxH = m.rank.guessed ? 116 : 92;
+  draw((g) => { g.fillStyle = '#2b2033'; rr(g, P, boxTop, W - P * 2, boxH, 14); g.fill(); });
+  y += 22;
+  para('마녀 등급', 12, { weight: 700, color: '#f0c050', align: 'center' });
+  para(m.rank.guessed ? m.rank.label : '예상 없이 끓였어요', 24, { weight: 700, font: SERIF, color: '#fff4d0', align: 'center' }, W - P * 2, 1.3);
+  if (m.rank.guessed) {
+    para(starsText(m.rank.stars), 16, { color: '#f0c050', align: 'center' }, W, 1.35);
+    para(`내 예상 ${m.rank.guessed}병 중 ${m.rank.hits}병 맞힘`, 12, { weight: 600, color: '#d8d0ee', align: 'center' });
+  }
+  y = boxTop + boxH + 16;
+
+  // 머리
+  para(`RECIPE No.${m.no} · ${m.date} · ${m.moon}`, 11, { color: INK2, align: 'center' });
+  para(`「${m.title}」`, 22, { weight: 700, font: SERIF, align: 'center' }, W - P * 2, 1.35);
+  para(`${m.npc}${m.pc ? ` → ${m.pc}` : ''}`, 13, { weight: 600, color: INK2, align: 'center' });
+  rule();
+
+  // 2) TOP 3
+  heading(`${who(m)} 끌리는 이유 TOP 3`);
+  m.top.forEach((t, i) => {
+    row(`${i + 1}. ${t.name}`, `${t.pct}%`, 15, { weight: 700, rcolor: WAX });
+    y += 22; bar(P, y, W - P * 2, t.pct, t.color); y += 14;
+    if (t.status) para(`“${t.status}”`, 13, { weight: 700, font: SERIF }, W - P * 2, 1.5);
+    y += 6;
+  });
+  rule();
+
+  // 3) 덜 끌리는 것 · 사랑의 언어
+  if (m.low) {
+    heading('가장 덜 끌리는 것');
+    para(`${m.low.name} ${m.low.pct}%`, 15, { weight: 700 });
+    if (m.low.status) para(`“${m.low.status}”`, 13, { weight: 700, font: SERIF, color: INK2 });
+  }
+  if (m.lang) {
+    heading('사랑의 언어');
+    const verdict = m.lang.guess ? (m.lang.hit ? '  ✓ 내 예상과 같음' : `  ✕ 나는 ${josa(m.lang.guess, '이라고', '라고')} 예상`) : '';
+    para(`${m.lang.types.join('·') || '알 수 없음'}${m.lang.pct != null ? ` ${m.lang.pct}%` : ''}${verdict}`, 15, { weight: 700 });
+    if (m.lang.status) para(`“${m.lang.status}”`, 13, { weight: 700, font: SERIF, color: INK2 });
+  }
+  rule();
+
+  // 4) 끌림 12가지
+  heading('끌림 12가지 한눈에');
+  m.all.forEach((a) => {
+    row(a.name, `${a.pct}%`, 13, { mark: a.mark });
+    bar(P + 92, y + 6, W - P * 2 - 92 - 64, a.pct, a.color);
+    y += 22;
+  });
+  rule();
+
+  // 5) 숨겨진 마음
+  if (m.hidden.length) {
+    heading('숨겨진 마음');
+    m.hidden.forEach((h) => { row(h.name, `${h.pct ?? '—'}%`, 13); bar(P + 112, y + 6, W - P * 2 - 112 - 44, h.pct ?? 0); y += 22; });
+    rule();
+  }
+
+  // 6) 아직 하지 못한 말
+  if (m.deep) { heading(`${m.npc}, 아직 하지 못한 말`); para(`“${m.deep}”`, 15, { weight: 700, font: SERIF }, W - P * 2, 1.6); }
+  y += 10;
+  para('마녀의 속마음 실험실 · 놀이용 해석이에요', 11, { color: INK2, align: 'center' });
+  const H = Math.ceil(y + P);
+
+  const c = document.createElement('canvas');
+  c.width = W * S; c.height = H * S;
+  const g = c.getContext('2d');
+  g.scale(S, S);
+  g.fillStyle = '#f3e6c6'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#6b4426'; g.lineWidth = 2; g.strokeRect(8, 8, W - 16, H - 16);
+  g.textBaseline = 'alphabetic';
+  ops.forEach((op) => op(g));
   return c;
 }

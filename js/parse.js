@@ -5,8 +5,8 @@
 //      * 설명: ...
 // 굵게(**), 번호(1.), 글머리(- * • ·), 제목(#), 콜론 위치가 달라도 읽는다.
 
-import { ANXIETY, HIDDEN, ATTACH_TYPES } from './items.js?v=20';
-import { decode, SLOTS, levelToPct, ROW, TYPE_CODE } from './codebook.js?v=20';
+import { ANXIETY, HIDDEN, ATTACH_TYPES } from './items.js?v=27';
+import { decode, SLOTS, levelToPct, ROW, TYPE_CODE } from './codebook.js?v=27';
 
 const compact = (s) => s.replace(/[\s*_`~:：\[\]【】()（）'"“”‘’]/g, '');
 
