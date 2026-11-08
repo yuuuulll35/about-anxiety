@@ -979,3 +979,14 @@ body { background: #0f0b1d; }
 @media (max-width: 899px) {
   .say-form { max-height: max(190px, calc(100dvh - 560px)); }
 }
+
+/* 레시피 받기: 주문 조각 탭 (한 번에 한 조각만) */
+.otabs { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(43, 32, 51, .08); }
+.otabs button { flex: 1; min-width: 0; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: 9px; background: transparent; color: #7a6a5a; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.otabs button span { flex: none; font-size: 14px; }
+.otabs button.on { background: #fff; color: #2b2033; box-shadow: 0 1px 0 rgba(255, 255, 255, .8), 0 2px 8px -3px rgba(0, 0, 0, .35); }
+.otabs button.on span { color: #9d2f55; }
+.otabs button.done span { color: #2c8a3c; }
+.say-row.ostep .mini { flex: 1; }
+.say-row.olinks { flex-wrap: wrap; gap: 4px 14px; }
+@media (max-width: 380px) { .otabs button { font-size: 12px; } }

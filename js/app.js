@@ -38,10 +38,11 @@ function toast(msg) {
 }
 
 const cat = $('#cat');
-function say(html) {
+function say(html, quiet = false) {
   $('#catSay').innerHTML = html;
-  const box = $('#sayBox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
   requestAnimationFrame(avoidCat);
+  if (quiet) return; // 같은 단계를 다시 그릴 때는 말풍선·고양이를 흔들지 않는다
+  const box = $('#sayBox'); box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
   cat.classList.remove('talk'); void cat.offsetWidth; cat.classList.add('talk');
 }
 
@@ -102,8 +103,8 @@ function paintWho() {
 }
 
 /* 고양이 대화창 + 그 아래 입력 한 줄 */
-function ask(text, formHtml = '', bind = null) {
-  say(text);
+function ask(text, formHtml = '', bind = null, quiet = false) {
+  say(text, quiet);
   const f = $('#sayForm');
   f.innerHTML = formHtml;
   f.hidden = !formHtml;
@@ -176,70 +177,79 @@ function goStep(s) {
   }
 }
 
-/* 레시피 받기: 주문 조각을 하나씩 보내고, 받은 답을 이어 붙인다 (relation-anatomy · daily-life-simulator 방식) */
+/* 레시피 받기: 주문을 한 번에 한 조각씩. 탭으로 ①②③을 오가고, 지금 탭만 보여 준다 */
 let showManual = false;
-let showList = false;
+let tabAt = null; // 지금 보고 있는 주문 조각 (null 이면 아직 안 끝난 첫 조각, -1 이면 다 모임)
+const copiedSet = () => new Set((store.get('aa.copiedParts') || '').split('').filter(Boolean).map(Number));
+function markCopied(i) { const c = copiedSet(); c.add(i); store.set('aa.copiedParts', [...c].sort().join('')); }
 function partState(i, r) {
   const st = OOC_STEPS[i];
-  if (!st.expect.length) return { done: +(store.get('aa.copied') || 0) >= 1, got: 0, need: 0 };
   const got = st.expect.filter((c) => (c === 'DEEP' ? !!r.deepest : r.codes?.includes(c) || !!r.items[SLOT_KEY[c]])).length;
   return { done: got === st.expect.length, got, need: st.expect.length };
 }
 const SLOT_KEY = Object.fromEntries([...ANXIETY.map((d, i) => [`A${pad2(i + 1)}`, d.key]), ...HIDDEN.map((d, i) => [`H${pad2(i + 1)}`, d.key])]);
+const NO = '①②③④';
 
-function orderPanel() {
+function orderPanel(quiet = false) {
   const r = parseAnalysis(draftText);
   const states = OOC_STEPS.map((_, i) => partState(i, r));
-  const cur = states.findIndex((x) => !x.done);
+  const firstOpen = states.findIndex((x) => !x.done);
+  const allDone = firstOpen === -1;
   const total = r.error ? 0 : r.found;
-  const head = cur === -1
-    ? '레시피가 다 모였다냥! <b>솥에 불</b>을 지펴.'
-    : cur === 0
-      ? (guessN() ? '나만의 물약 완성! 이제 <b>진짜 레시피</b>를 받아 오자. ' : '') + `주문을 <b>${OOC_STEPS.length}번</b> 나눠 보내. ①을 복사해 채팅에 보내고, 답이 오면 그 답을 복사해서 <b>답 넣기</b>.`
-      : `좋아! 이번엔 <b>${'①②③④'[cur]}</b>을 복사해 보내고, 답을 받아 와서 <b>답 넣기</b>.`;
-  const allDone = cur === -1 && !showList;
+  if (tabAt == null || tabAt >= OOC_STEPS.length || (tabAt === -1 && !allDone)) tabAt = allDone ? -1 : firstOpen;
+  const i = tabAt;
+  const copied = copiedSet();
+
+  let head;
+  if (i === -1) head = '레시피가 다 모였다냥! <b>솥에 불</b>을 지펴.';
+  else if (states[i].done) head = `<b>${NO[i]} ${esc(OOC_STEPS[i].title)}</b>은 이미 받았어. 다시 받으려면 복사부터 해.`;
+  else if (!copied.has(i)) head = `${i === 0 && guessN() ? '나만의 물약 완성! ' : ''}<b>${NO[i]} ${esc(OOC_STEPS[i].title)}</b> 주문을 복사해서 롤플 채팅에 보내 줘.`;
+  else head = 'AI 답이 오면 그 답을 복사하고 <b>답 넣기</b>를 눌러.';
+
+  const tabs = `<div class="otabs" role="tablist">${OOC_STEPS.map((stp, k) => {
+    const x = states[k];
+    return `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === i}" class="${x.done ? 'done' : ''}${k === i ? ' on' : ''}"><span>${x.done ? '✓' : NO[k]}</span>${esc(stp.title)}</button>`;
+  }).join('')}</div>`;
+
+  const body = i === -1
+    ? '<div class="say-row"><button class="mini go wide ready" id="fBrew" type="button">솥에 불 지피기</button></div>'
+    : `<div class="say-row ostep">
+         <button class="mini wide${copied.has(i) ? '' : ' primary'}" type="button" id="fCopy">${copied.has(i) ? '다시 복사' : '📋 주문 복사'}</button>
+         <button class="mini wide${copied.has(i) ? ' primary' : ''}" type="button" id="fPaste" ${copied.has(i) || states[i].done ? '' : 'disabled'}>📥 답 넣기${states[i].got && !states[i].done ? ` (${states[i].got}/${states[i].need})` : ''}</button>
+       </div>`;
+
   ask(head, `
-    ${allDone ? '<button class="link-btn" type="button" id="fList">주문 목록 다시 보기</button>' : ''}
-    <ol class="order"${allDone ? ' hidden' : ''}>${OOC_STEPS.map((stp, i) => {
-      const x = states[i];
-      const cls = x.done ? 'done' : i === cur ? 'now' : '';
-      const meta = !stp.expect.length
-        ? (x.done ? 'AI가 "준비됨"이라고 하면 OK' : '답은 넣지 않아도 돼')
-        : x.got ? `${x.got}/${x.need}` : '';
-      return `<li class="${cls}">
-        <span class="o-no">${'①②③④'[i]}</span>
-        <span class="o-t">${esc(stp.title)}<small>${meta}</small></span>
-        <button class="mini${x.done ? ' quiet' : ''}" type="button" data-copy="${i}">복사</button>
-        ${stp.expect.length ? `<button class="mini${x.done ? ' quiet' : ' primary'}" type="button" data-paste="${i}">${x.done ? '다시' : '📥 답 넣기'}</button>` : '<span class="o-pad"></span>'}
-      </li>`;
-    }).join('')}</ol>
+    ${tabs}
+    ${body}
     <p class="check" id="fCheck">${total ? `모인 레시피 <span class="${total === 18 ? 'ok' : 'part'}">${total}/18</span> · 마지막 한 방울 <span class="${r.deepest ? 'ok' : 'no'}">${r.deepest ? '✓' : '—'}</span>${r.fuzzy ? ` · <span class="part">흐린 글자 ${r.fuzzy}칸은 보통으로 읽어</span>` : ''}` : ''}</p>
-    <button class="link-btn" type="button" id="fManual">${showManual ? '직접 붙여넣기 닫기' : '직접 붙여넣기 · 모인 답 보기'}</button>
-    ${showManual ? `<textarea id="fText" rows="3" placeholder="받은 답을 여기에 이어 붙여도 돼" spellcheck="false">${esc(draftText)}</textarea>` : ''}
-    <div class="say-row"><button class="mini go wide" id="fBrew" type="button" ${total >= 6 ? '' : 'disabled'}>솥에 불 지피기${total && total < 18 ? ` (${total}/18)` : ''}</button></div>
-    ${draftText.trim() ? '<button class="link-btn" type="button" id="fClear">모인 답 비우기</button>' : ''}`,
+    <div class="say-row olinks">
+      <button class="link-btn" type="button" id="fManual">${showManual ? '직접 붙여넣기 닫기' : '직접 붙여넣기'}</button>
+      ${!allDone && total >= 6 ? '<button class="link-btn" type="button" id="fBrewNow">여기까지로 끓이기</button>' : ''}
+      ${draftText.trim() ? '<button class="link-btn" type="button" id="fClear">모인 답 비우기</button>' : ''}
+    </div>
+    ${showManual ? `<textarea id="fText" rows="3" placeholder="받은 답을 여기에 붙여 넣어도 돼" spellcheck="false">${esc(draftText)}</textarea>` : ''}`,
   (f) => {
-    $$('[data-copy]', f).forEach((b) => b.addEventListener('click', async () => {
-      const i = +b.dataset.copy;
+    $$('[data-tab]', f).forEach((b) => b.addEventListener('click', () => { tabAt = +b.dataset.tab; sfx.tap(); orderPanel(true); }));
+    $('#fCopy', f)?.addEventListener('click', async () => {
       if (!(await copyText(OOC_STEPS[i].text))) { toast('복사하지 못했어요. 브라우저 권한을 확인해 주세요.'); return; }
-      if (i === 0) store.set('aa.copied', '1');
+      markCopied(i);
       sfx.cork(); buzz(10);
       toast(`주문 ${i + 1}/${OOC_STEPS.length}을 복사했어요. 채팅에 보내 주세요.`);
-      if (i === 0) orderPanel();
-    }));
-    $$('[data-paste]', f).forEach((b) => b.addEventListener('click', async () => {
+      orderPanel(true);
+    });
+    $('#fPaste', f)?.addEventListener('click', async () => {
       let t = '';
       try { t = await navigator.clipboard.readText(); } catch { /* 권한 없음 */ }
-      if (!t.trim()) { showManual = true; orderPanel(); toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); $('#fText')?.focus(); return; }
-      addAnswer(t, +b.dataset.paste);
-    }));
-    $('#fManual', f).addEventListener('click', () => { showManual = !showManual; sfx.tap(); orderPanel(); });
-    $('#fList', f)?.addEventListener('click', () => { showList = true; sfx.tap(); orderPanel(); });
+      if (!t.trim()) { showManual = true; orderPanel(true); toast('붙여넣기 권한이 없어요. 아래 칸에 직접 붙여 넣어 주세요.'); $('#fText')?.focus(); return; }
+      addAnswer(t, i);
+    });
+    $('#fManual', f).addEventListener('click', () => { showManual = !showManual; sfx.tap(); orderPanel(true); });
     const ta = $('#fText', f);
-    if (ta) ta.addEventListener('change', () => { draftText = ta.value; store.set('aa.text', draftText); orderPanel(); });
-    $('#fBrew', f).addEventListener('click', () => startBrew(draftText, false));
-    $('#fClear', f)?.addEventListener('click', () => { draftText = ''; store.set('aa.text', ''); orderPanel(); });
-  });
+    if (ta) ta.addEventListener('change', () => { draftText = ta.value; store.set('aa.text', draftText); tabAt = null; orderPanel(true); });
+    $('#fBrew', f)?.addEventListener('click', () => startBrew(draftText, false));
+    $('#fBrewNow', f)?.addEventListener('click', () => startBrew(draftText, false));
+    $('#fClear', f)?.addEventListener('click', () => { draftText = ''; store.set('aa.text', ''); store.set('aa.copiedParts', ''); tabAt = null; orderPanel(true); });
+  }, quiet);
 }
 
 function addAnswer(t, i) {
@@ -254,7 +264,9 @@ function addAnswer(t, i) {
   const exp = OOC_STEPS[i]?.expect || [];
   const miss = exp.filter((c) => (c === 'DEEP' ? !r1.deepest : !r1.codes?.includes(c)));
   toast(miss.length && exp.length ? `${exp.length - miss.length}/${exp.length}줄을 넣었어요. 빠진 줄: ${miss.join(', ')}` : `레시피 ${gained > 0 ? gained : r1.found}줄을 넣었어요.`);
-  orderPanel();
+  const stepDone = partState(i, after).done;
+  if (stepDone) tabAt = null; // 다음 조각으로 넘어간다
+  orderPanel(!stepDone);
 }
 
 /* 튜토리얼: 한 줄씩, 말하는 대상을 비춘다 */
@@ -812,7 +824,7 @@ $('#restart').addEventListener('click', () => {
   book.close();
   data = null; st = null; lastModel = null;
   G = { g: {}, attach: null }; saveGuess();
-  draftText = ''; store.set('aa.text', ''); store.set('aa.copied', '');
+  draftText = ''; store.set('aa.text', ''); store.set('aa.copiedParts', ''); tabAt = null;
   $$('.hang').forEach((h) => { h.classList.remove('poured', 'set', 'empty', 'coach'); $('.mark', h)?.remove(); });
   $('#trackDrops').innerHTML = ''; $('#trackStars').innerHTML = ''; $('#trackSeal i').classList.remove('on');
   flaskBtn.classList.remove('open', 'knock'); flaskBtn.dataset.hits = '0';
@@ -847,19 +859,26 @@ $('#restart').addEventListener('click', () => {
   }, { passive: true });
 }
 
-/* 말풍선이 고양이를 덮으면 고양이가 벽 아래로 쏙 숨는다 */
+/* 말풍선이 고양이를 덮으면 고양이가 벽 아래로 쏙 숨는다.
+   숨김을 풀었다가 다시 재지 않는다(그러면 다시 그릴 때마다 위아래로 튄다). 숨기 전 위치로 계산한다. */
+let duckPx = 0;
 function avoidCat() {
   const c = $('#cat'), b = $('#sayBox');
-  c.style.removeProperty('--duck');
-  c.classList.remove('duck');
-  if (b.offsetParent === null) return;
-  const cr = c.getBoundingClientRect(), br = b.getBoundingClientRect();
-  const hat = $('.cat-hatg').getBoundingClientRect();
-  if (br.right <= cr.left + cr.width * .15 || br.bottom <= hat.top) return;
-  // 모자 끝이 말풍선 아래로 내려갈 만큼 내린다 (최대: 귀 끝만 보이게)
-  const need = Math.min(br.bottom - hat.top + 10, cr.height * .86);
-  c.style.setProperty('--duck', need + 'px');
-  c.classList.add('duck');
+  let need = 0;
+  if (b.offsetParent !== null) {
+    const cr = c.getBoundingClientRect(), br = b.getBoundingClientRect();
+    const hatTop = $('.cat-hatg').getBoundingClientRect().top - duckPx;
+    const catLeft = cr.left;
+    if (!(br.right <= catLeft + cr.width * .15 || br.bottom <= hatTop)) {
+      // 모자 끝이 말풍선 아래로 내려갈 만큼 내린다 (최대: 귀 끝만 보이게)
+      need = Math.min(br.bottom - hatTop + 10, cr.height * .86);
+    }
+  }
+  need = Math.max(0, Math.round(need));
+  if (Math.abs(need - duckPx) < 4) return; // 몇 픽셀 차이는 무시
+  duckPx = need;
+  if (need) { c.style.setProperty('--duck', need + 'px'); c.classList.add('duck'); }
+  else { c.style.removeProperty('--duck'); c.classList.remove('duck'); }
 }
 window.addEventListener('resize', () => requestAnimationFrame(avoidCat));
 new ResizeObserver(() => avoidCat()).observe($('#sayBox'));
