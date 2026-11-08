@@ -452,10 +452,27 @@ function runSample() {
 }
 $('#loadSample').addEventListener('click', () => { book.close(); runSample(); });
 
-function startBrew(text, isSample) {
+/* 점화: 솥 아래 불길이 솟고 불씨가 튀며 "레시피 완성" 도장이 찍힌 뒤 붓기 단계로 넘어간다.
+   transform·opacity 만 움직여 가볍게, 1.6초 안에 끝낸다. */
+let igniting = false;
+function ignite(found, then) {
+  if (reduced) { then(); return; }
+  igniting = true;
+  $('#sayForm').hidden = true; $('#sayForm').innerHTML = '';
+  say(found >= 18 ? '레시피 18줄이 다 모였다! <b>불 붙인다냥!</b>' : `레시피 ${found}줄로 <b>불 붙인다냥!</b>`);
+  $('#igniteStamp').textContent = found >= 18 ? '레시피 완성' : `레시피 ${found}/18`;
+  stage.classList.remove('igniting'); void stage.offsetWidth; stage.classList.add('igniting');
+  sfx.crack(); buzz(40);
+  setTimeout(() => sfx.plop(), 500);
+  setTimeout(() => { stage.classList.remove('igniting'); igniting = false; then(); }, 1600);
+}
+
+function startBrew(text, isSample, lit = false) {
+  if (igniting) return;
   const parsed = parseAnalysis(text);
   const anxFound = ANXIETY.filter((d) => parsed.items[d.key]).length;
   if (parsed.error || parsed.found < 6 || anxFound < 4) { toast(parsed.error ? '물약 코드가 깨졌어요. 코드 줄을 다시 복사해 주세요.' : '재료를 충분히 찾지 못했어요. 답변 전체를 붙여 넣어 주세요.'); return; }
+  if (!lit) { if (book.open) book.close(); ignite(parsed.found, () => startBrew(text, isSample, true)); return; }
   data = parsed;
   const useNpc = isSample ? (parsed.npc || '서도윤') : (npc || parsed.npc || 'NPC');
   const usePc = isSample ? (parsed.pc || '유하') : (pc || parsed.pc || '');
