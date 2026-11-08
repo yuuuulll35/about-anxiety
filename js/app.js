@@ -296,7 +296,7 @@ function introLine() {
   ask(`${L.t}`,
     `<div class="say-row end"><span class="dots">${INTRO.map((_, i) => `<i class="${i === introAt ? 'on' : ''}"></i>`).join('')}</span>
        <button class="link-btn" type="button" id="fSkipIntro">${last ? '' : '설명 건너뛰기'}</button>
-       <button class="mini primary" id="fNext" type="button">${last ? '좋아, 시작!' : '다음 ▸'}</button></div>`,
+       <button class="mini primary" id="fNext" type="button">${last ? '좋아, 시작!' : '다음'}</button></div>`,
     (f) => {
       const next = () => { sfx.tap(); if (last) goStep('name'); else { introAt++; introLine(); } };
       $('#fNext', f).addEventListener('click', next);
@@ -430,13 +430,13 @@ function setPhase(p) {
   if (!['title', 'guess', 'paste'].includes(p)) { $('#sayForm').hidden = true; $('#sayForm').innerHTML = ''; }
   switch (p) {
     case 'brew':
-      say(`${Object.keys(st.guesses).length ? '진짜 레시피 도착! ' : ''}<b>첫 병을 톡</b> 눌러 솥에 부어 봐. 그다음부턴 카드에서 <b>다음 ▸</b>만 누르면 돼.`);
+      say(`${Object.keys(st.guesses).length ? '진짜 레시피 도착! ' : ''}<b>첫 병을 톡</b> 눌러 솥에 부어 봐. 그다음부턴 카드에서 <b>다음 병 붓기</b>만 누르면 돼.`);
       act(null);
       hangEl(ANXIETY.find((d) => !st.poured.has(d.key))?.key ?? ANXIETY[0].key).classList.add('coach');
       break;
     case 'stir':
       say('이제 솥을 저을 차례! 아래 <b>한 번에 젓기</b>를 누르면 환영 6개를 다 불러 줄게. 솥을 직접 빙글빙글 저어도 돼.');
-      act('한 번에 젓기 ▸', stirAll);
+      act('한 번에 젓기', stirAll);
       break;
     case 'seal':
       say('마지막 병이 떠올랐어. <b>봉랍을 톡톡톡</b>!');
@@ -634,7 +634,7 @@ function splash() {
   setTimeout(() => svg.classList.remove('splash'), 800);
 }
 
-/* 붓기: 첫 병은 톡 눌러 날아가는 모습을 보여 주고, 그다음부터는 재료 카드의 [다음 ▸](←→ 키·좌우 스와이프)로
+/* 붓기: 첫 병은 톡 눌러 날아가는 모습을 보여 주고, 그다음부터는 재료 카드의 [다음 병 붓기](←→ 키·좌우 스와이프)로
    다음 병이 바로 솥에 들어가며 카드 내용만 바뀐다. 매번 카드를 닫고 병을 누를 필요가 없다. */
 function markPoured(key) {
   const it = data.items[key];
@@ -711,9 +711,19 @@ function meterHTML(pct, guess, color) {
       ${band ? `<span class="meter-band" style="left:${band[0]}%;width:${band[1] - band[0]}%"></span>` : ''}
       <span class="meter-fill" style="${color ? `--c:${color}` : ''}" data-w="${pct}"></span>
     </div>
-    <div class="meter-ticks" aria-hidden="true"><span style="left:2%">0</span><span style="left:40%">40</span><span style="left:70%">70</span><span style="left:97%">100</span></div>`;
+    <div class="meter-ticks" aria-hidden="true"><span style="left:2%">0</span><span style="left:40%">40</span><span style="left:70%">70</span><span style="left:97%">100</span></div>
+    ${band ? '<p class="meter-legend"><i></i>빗금 = 내가 예상한 범위</p>' : ''}`;
 }
 const vialHTML = (color, h) => `<span class="vial" style="--c:${color};--h:${h}%"></span>`;
+/** NPC의 속마음 한 블록: 한 줄 속마음(굵게) + 그 생각을 풀어 쓴 설명 */
+function mindHTML(it, color = '', label = true) {
+  if (!it.status && !it.desc) return '';
+  return `<div class="mind"${color ? ` style="--c:${color}"` : ''}>
+    ${label ? `<p class="mind-label">${esc(npc)}의 속마음</p>` : ''}
+    ${it.status ? `<p class="mind-line">${esc(it.status)}</p>` : ''}
+    ${it.desc ? `<p class="mind-why">${esc(it.desc)}</p>` : ''}
+  </div>`;
+}
 
 function showIng(key, fresh) {
   const i = ANXIETY.findIndex((d) => d.key === key);
@@ -726,8 +736,8 @@ function showIng(key, fresh) {
   const at = keys.indexOf(key);
   const prevKey = keys[at - 1], nextKey = keys[at + 1];
   const left = keys.filter((k) => !st.poured.has(k)).length;
-  const nextLabel = nextKey ? (st.poured.has(nextKey) ? '다음 ▸' : `다음 병 붓기 ▸ <small>${left}병 남음</small>`) : '';
-  const lastBtn = left ? '<button type="button" class="btn primary" data-close>닫기</button>' : '<button type="button" class="btn primary" data-close>다 부었다! 저으러 가기 ▸</button>';
+  const nextLabel = nextKey ? (st.poured.has(nextKey) ? '다음' : `다음 병 붓기 <small>${left}병 남음</small>`) : '';
+  const lastBtn = left ? '<button type="button" class="btn primary" data-close>닫기</button>' : '<button type="button" class="btn primary" data-close>다 부었다! 저으러 가기</button>';
   openSheet(`
     <div class="sheet-grab"></div>
     <div class="s-top">
@@ -743,11 +753,12 @@ function showIng(key, fresh) {
     </div>
     ${meterHTML(it.pct, guess, d.color)}
     ${it.uncertain ? '<p class="s-hint">코드가 흐려서 보통(4단계)으로 읽었어.</p>' : ''}
-    ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">나만의 물약 <b>${TIER_LABEL[guess]}</b> → 진짜 <b>${TIER_LABEL[tier]}</b> · ${hit ? '똑같다!' : '달랐다'}</p>` : ''}
-    ${it.status ? `<p class="label-sticker" style="--c:${d.color}">${esc(it.status)}</p>` : ''}
-    ${it.desc ? `<p class="s-desc-title">재료 감정서</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
+    ${guess ? `<p class="verdict ${hit ? 'hit' : 'miss'}">${hit
+      ? `✓ 맞혔어요! 나도 <b>${TIER_LABEL[guess]}</b>이라고 예상했고, 실제로도 <b>${TIER_LABEL[tier]}</b>이에요.`
+      : `✕ 아쉬워요. 나는 <b>${TIER_LABEL[guess]}</b>이라고 예상했는데, 실제로는 <b>${TIER_LABEL[tier]}</b>이에요.`}</p>` : ''}
+    ${mindHTML(it, d.color)}
     <div class="s-actions ing-nav">
-      <button type="button" class="btn ghost-btn" data-step="-1" ${prevKey ? '' : 'disabled'} aria-label="이전 재료">◂</button>
+      <button type="button" class="btn ghost-btn" data-step="-1" ${prevKey ? '' : 'disabled'}>이전</button>
       ${nextKey ? `<button type="button" class="btn primary" data-step="1">${nextLabel}</button>` : lastBtn}
     </div>
     <p class="ing-count">${at + 1} / ${keys.length}</p>
@@ -838,7 +849,7 @@ function showVisionList() {
     const it = data.items[d.key];
     const types = d.key === 'attach' ? (it.types || []) : [];
     const verdict = d.key === 'attach' && ag
-      ? `<span class="vc-chip ${types.includes(ag) ? 'hit' : 'miss'}">${types.includes(ag) ? '내 짐작 적중' : `내 짐작 ${esc(ag)}`}</span>` : '';
+      ? `<span class="vc-chip ${types.includes(ag) ? 'hit' : 'miss'}">${types.includes(ag) ? '✓ 내 예상과 같음' : `✕ 나는 ${esc(josa(ag, '이라고', '라고'))} 예상`}</span>` : '';
     return `<li class="vc">
       <span class="vc-icon" aria-hidden="true"><svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg></span>
       <div class="vc-body">
@@ -848,8 +859,7 @@ function showVisionList() {
         </div>
         ${it.pct != null ? `<span class="vc-bar"><i style="width:${it.pct}%"></i></span>` : ''}
         ${types.length || verdict ? `<p class="vc-chips">${types.map((t) => `<span class="vc-chip">${esc(t)}</span>`).join('')}${verdict}</p>` : ''}
-        ${it.status ? `<p class="vc-status">${esc(it.status)}</p>` : ''}
-        ${it.desc ? `<p class="vc-desc">${esc(it.desc)}</p>` : ''}
+        ${mindHTML(it, '', false)}
       </div>
     </li>`;
   }).join('');
@@ -901,10 +911,11 @@ function showVision(key) {
     </div>
     ${meterHTML(it.pct, null, null)}
     ${quad}
-    ${key === 'attach' && ag ? `<p class="verdict ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">나만의 물약 <b>${esc(ag)}</b> · ${(it.types || []).includes(ag) ? '똑같다!' : '달랐다'}</p>` : ''}
+    ${key === 'attach' && ag ? `<p class="verdict ${(it.types || []).includes(ag) ? 'hit' : 'miss'}">${(it.types || []).includes(ag)
+      ? `✓ 맞혔어요! 나도 <b>${esc(ag)}</b>${josa(ag, '이라고', '라고').slice(ag.length)} 예상했어요.`
+      : `✕ 아쉬워요. 나는 <b>${esc(ag)}</b>${josa(ag, '이라고', '라고').slice(ag.length)} 예상했는데, 실제로는 <b>${esc((it.types || []).join('·') || '알 수 없음')}</b>${josa((it.types || []).join('·') || '알 수 없음', '이에요', '예요').slice(((it.types || []).join('·') || '알 수 없음').length)}.`}</p>` : ''}
     ${key === 'attach' && it.tag && !(it.types || []).length ? `<p class="s-hint">${esc(it.tag)}</p>` : ''}
-    ${it.status ? `<p class="label-sticker">${esc(it.status)}</p>` : ''}
-    ${it.desc ? `<p class="s-desc-title">연기가 보여 준 것</p><p class="s-desc">${esc(it.desc)}</p>` : ''}
+    ${mindHTML(it)}
     <div class="s-actions"><button type="button" class="btn primary" data-close>${left ? `계속 젓기 (${left}개 남음)` : '닫기'}</button></div>
   `, true, () => { if (phase === 'stir' && !nextVision()) setPhase('seal'); });
 }
