@@ -1,6 +1,6 @@
 // 레시피 카드: 이번 물약으로 알게 된 것을 한 장에 정리한다. 같은 모델로 화면용 HTML 과 저장용 PNG 를 만든다.
 //  1) 마녀 등급(내 예상이 몇 병 맞았나)  2) 끌리는 이유 TOP 3 + 속마음  3) 덜 끌리는 것 · 사랑의 언어
-//  4) 끌림 12가지 막대  5) 숨겨진 마음  6) 아직 하지 못한 말
+//  4) 끌림 12가지 칸(성공/실패 + %)  5) 숨겨진 마음 칸  6) 아직 하지 못한 말
 import { ANXIETY, HIDDEN, tierOf, TIER_LABEL } from './items.js?v=27';
 import { colorName, potionName, witchRank, hsl, josa } from './brew.js?v=27';
 
@@ -54,7 +54,7 @@ export function recipeHTML(m) {
     <p class="rc-no">RECIPE No.${m.no} · ${esc(m.date)} · ${esc(m.moon)}</p>
     <h3 class="rc-title">「${esc(m.title)}」</h3>
     <p class="rc-who">${esc(m.npc)}${m.pc ? ` → ${esc(m.pc)}` : ''}</p>
-    <p class="rc-sws">${swatch(m.mine, '내 물약')}${swatch(m.real, '진짜 물약')}</p>
+    <p class="rc-sws">${swatch(m.mine, '내 물약')}${swatch(m.real, '사랑의 물약')}</p>
   </header>
 
   <section class="rc-sec">
@@ -76,15 +76,15 @@ export function recipeHTML(m) {
   </section>` : ''}
 
   <section class="rc-sec">
-    <h4>끌림 12가지 한눈에 ${m.rank.guessed ? '<small>✓ 예상 적중 · ✕ 빗나감</small>' : ''}</h4>
-    <ul class="rc-all">${m.all.map((a) => `
-      <li><span class="rc-k">${esc(a.name)}</span>${bar(a.pct, a.color)}<span class="rc-v">${a.pct}%</span><span class="rc-m ${a.mark || ''}">${a.mark === 'hit' ? '✓' : a.mark === 'miss' ? '✕' : ''}</span></li>`).join('')}
+    <h4>끌림 12가지 한눈에${m.rank.guessed ? `<small class="rc-score"><span class="ok">✓ 성공 ${m.rank.hits}</span><span class="ng">✕ 실패 ${m.rank.guessed - m.rank.hits}</span></small>` : ''}</h4>
+    <ul class="rc-grid">${m.all.map((a) => `
+      <li class="rc-cell ${a.mark || 'none'}" style="--c:${a.color}"><span class="rc-cell-k">${esc(a.name)}</span><b class="rc-cell-v">${a.pct}<small>%</small></b><span class="rc-cell-m">${a.mark === 'hit' ? '✓ 성공' : a.mark === 'miss' ? '✕ 실패' : '예상 없음'}</span></li>`).join('')}
     </ul>
   </section>
 
   ${m.hidden.length ? `<section class="rc-sec">
     <h4>숨겨진 마음</h4>
-    <ul class="rc-all hid">${m.hidden.map((h) => `<li><span class="rc-k">${esc(h.name)}</span>${bar(h.pct ?? 0)}<span class="rc-v">${h.pct ?? '—'}%</span></li>`).join('')}</ul>
+    <ul class="rc-grid hid">${m.hidden.map((h) => `<li class="rc-cell"><span class="rc-cell-k">${esc(h.name)}</span><b class="rc-cell-v">${h.pct ?? '—'}<small>%</small></b></li>`).join('')}</ul>
   </section>` : ''}
 
   ${m.deep ? `<section class="rc-sec rc-deep"><h4>${esc(m.npc)}, 아직 하지 못한 말</h4><p>“${esc(m.deep)}”</p></section>` : ''}
@@ -175,19 +175,39 @@ export function recipeCanvas(m) {
   }
   rule();
 
-  // 4) 끌림 12가지
-  heading('끌림 12가지 한눈에');
-  m.all.forEach((a) => {
-    row(a.name, `${a.pct}%`, 13, { mark: a.mark });
-    bar(P + 92, y + 6, W - P * 2 - 92 - 64, a.pct, a.color);
-    y += 22;
-  });
+  // 4) 끌림 12가지: 칸마다 이름 · % · 성공/실패
+  const grid = (cells, cols, withMark) => {
+    const gap = 8, cw = (W - P * 2 - gap * (cols - 1)) / cols, ch = withMark ? 74 : 56;
+    cells.forEach((a, k) => {
+      const x = P + (k % cols) * (cw + gap), yy = y + Math.floor(k / cols) * (ch + gap);
+      const mk = withMark ? (a.mark || 'none') : 'none';
+      draw((g) => {
+        g.fillStyle = mk === 'hit' ? '#f1fbe8' : mk === 'miss' ? '#fff1f3' : '#ffffff'; rr(g, x, yy, cw, ch, 10); g.fill();
+        g.strokeStyle = mk === 'hit' ? '#9fd77e' : mk === 'miss' ? '#f2a9b6' : 'rgba(43,32,51,.14)'; g.lineWidth = 1; rr(g, x + .5, yy + .5, cw - 1, ch - 1, 10); g.stroke();
+        g.save(); rr(g, x, yy, cw, ch, 10); g.clip(); g.fillStyle = a.color || WAX; g.fillRect(x, yy, cw, 4); g.restore();
+        g.textAlign = 'center';
+        g.font = `700 11px ${BODY}`; g.fillStyle = '#5a4a3a'; g.fillText(a.name, x + cw / 2, yy + 22);
+        g.font = `700 19px ${BODY}`; g.fillStyle = INK; g.fillText(`${a.pct ?? '—'}%`, x + cw / 2, yy + 46);
+        if (withMark) {
+          const lab = mk === 'hit' ? '✓ 성공' : mk === 'miss' ? '✕ 실패' : '예상 없음';
+          g.font = `800 10.5px ${BODY}`;
+          const tw = g.measureText(lab).width + 14;
+          g.fillStyle = mk === 'hit' ? '#4caf3a' : mk === 'miss' ? '#d8435f' : 'rgba(46,32,20,.08)';
+          rr(g, x + cw / 2 - tw / 2, yy + 53, tw, 16, 8); g.fill();
+          g.fillStyle = mk === 'none' ? '#8a7a6a' : '#fff'; g.fillText(lab, x + cw / 2, yy + 65);
+        }
+      });
+    });
+    y += Math.ceil(cells.length / cols) * (ch + gap);
+  };
+  heading(m.rank.guessed ? `끌림 12가지 한눈에 · 성공 ${m.rank.hits} / 실패 ${m.rank.guessed - m.rank.hits}` : '끌림 12가지 한눈에');
+  y += 4; grid(m.all, 4, true);
   rule();
 
   // 5) 숨겨진 마음
   if (m.hidden.length) {
     heading('숨겨진 마음');
-    m.hidden.forEach((h) => { row(h.name, `${h.pct ?? '—'}%`, 13); bar(P + 112, y + 6, W - P * 2 - 112 - 44, h.pct ?? 0); y += 22; });
+    y += 4; grid(m.hidden.map((h) => ({ ...h, color: WAX })), 3, false);
     rule();
   }
 

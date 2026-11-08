@@ -2,11 +2,11 @@ import { ANXIETY, HIDDEN, ATTACH_TYPES, tierOf, TIER_LABEL } from './items.js?v=
 import { parseAnalysis } from './parse.js?v=27';
 import { SAMPLE } from './sample.js?v=27';
 import { OOC_STEPS } from './prompt.js?v=27';
-import { FILM_ICONS } from './icons.js?v=27';
-import { cauldronSVG, RIM } from './cauldron.js?v=27';
+import { icon, LANG_ICON } from './icons.js?v=40';
+import { cauldronSVG, RIM } from './cauldron.js?v=40';
 import { mixBrew, colorName, hsl, moonPhase, josa, potionName, witchRank } from './brew.js?v=27';
-import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=32';
-import { setSound, soundOn, sfx, buzz } from './sound.js?v=30';
+import { recipeModel, recipeHTML, recipeCanvas } from './recipe.js?v=40';
+import { setSound, soundOn, sfx, buzz } from './sound.js?v=40';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -74,6 +74,7 @@ paintSound();
 $('#pot').innerHTML = cauldronSVG('p', true);
 const m = moonPhase();
 $('#moon').textContent = m.icon;
+$('#copyPrompt').innerHTML = `${icon('copy')}주문 1/3 복사`;
 $('#moon').parentElement.title = `오늘의 달 · ${m.label}`;
 
 function setBrewVars(target, b) {
@@ -167,9 +168,14 @@ function goStep(s) {
     case 'attach':
       setPhase('guess');
       ask(`하나만 더! ${esc(josa(npc, '은', '는'))} 사랑을 주로 어떻게 표현할까?`,
-        `<div class="chips">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${t}</button>`).join('')}<button type="button" data-at="" class="ghost">모르겠어</button></div>`,
+        `<div class="lang-pick">${ATTACH_TYPES.map((t) => `<button type="button" data-at="${t}" class="${G.attach === t ? 'on' : ''}">${icon(LANG_ICON[t])}<span>${t}</span></button>`).join('')}<button type="button" data-at="" class="ghost">${icon(LANG_ICON[''])}<span>모르겠어</span></button></div>`,
         (f) => $$('[data-at]', f).forEach((b) => b.addEventListener('click', () => {
-          G.attach = b.dataset.at || null; saveGuess(); sfx.knock(); buzz(10); goStep('ooc');
+          // 고른 표현마다 제 소리가 난다(속삭임 · 시계 · 선물 상자 · 찻잔 · 심장 소리 · 갸우뚱). 소리가 끝날 즈음 다음 단계로
+          if (f.dataset.picked) return;
+          f.dataset.picked = '1';
+          $$('[data-at]', f).forEach((x) => x.classList.toggle('on', x === b));
+          G.attach = b.dataset.at || null; saveGuess(); sfx.lang(b.dataset.at); buzz(10);
+          setTimeout(() => goStep('ooc'), reduced ? 0 : 560);
         })));
       break;
     case 'ooc':
@@ -233,7 +239,7 @@ function orderPanel(quiet = false) {
   const dots = stp.expect.map((c) => `<i class="${x.has(c) ? 'on' : ''}" title="${c}">${c === 'DEEP' ? '✦' : c.slice(1)}</i>`).join('');
 
   ask(head, `${tabs}
-    <button class="mini wide${copied.has(i) ? '' : ' primary'}" type="button" id="fCopy">${copied.has(i) ? `📋 ${NO[i]} 주문 다시 복사` : `📋 ${NO[i]} 주문 복사`}</button>
+    <button class="mini wide${copied.has(i) ? '' : ' primary'}" type="button" id="fCopy">${icon('copy')}${copied.has(i) ? `${NO[i]} 주문 다시 복사` : `${NO[i]} 주문 복사`}</button>
     <textarea id="fAns" class="ans${copied.has(i) && !x.done ? ' want' : ''}" rows="2" placeholder="${NO[i]} AI 답을 여기에 붙여넣기" spellcheck="false" autocomplete="off"></textarea>
     <div class="ostat"><span class="odots" aria-label="${x.got}/${x.need}줄 받음">${dots}</span><span class="omsg" id="fMsg">${esc(lastMsg)}</span></div>
     <div class="say-row olinks">
@@ -296,7 +302,7 @@ const INTRO = [
   { t: '여기선 캐릭터의 <b>속마음</b>을 물약으로 끓여. 오늘 끓일 건 <b>사랑의 묘약</b>! 천장에 매달린 <b>병 12개</b>가 마음이 끌리는 이유 12가지야.', f: 'rack' },
   { t: '먼저 네 감으로 병마다 농도를 골라 <b>나만의 물약</b>을 만들어 봐. 정답은 없어!', f: 'rack' },
   { t: '그다음 <b>주문서</b>의 주문(OOC)을 롤플 채팅에 보내면, AI가 <b>진짜 레시피</b>를 알려 줘.', f: 'book' },
-  { t: '받아 온 레시피로 이 솥에 <b>진짜 물약</b>을 끓이면, 네 물약과 얼마나 같은지 보여 줄게.', f: 'pot' },
+  { t: '받아 온 레시피로 이 솥에 <b>사랑의 물약</b>을 끓이면, 네 물약과 얼마나 같은지 보여 줄게.', f: 'pot' },
 ];
 function introLine() {
   const L = INTRO[introAt];
@@ -337,7 +343,7 @@ function guessAct() {
 }
 
 /* 물약 완성 카드: 솥 위에 병이 떠올라 물약 색으로 차오르고 이름이 나온다.
-   나만의 물약(짐작 끝)과 진짜 물약(봉랍을 깬 뒤) 둘 다 이 카드를 쓴다. stay 면 누를 때까지 남는다. */
+   나만의 물약(짐작 끝)과 사랑의 물약(코르크를 뽑은 뒤) 둘 다 이 카드를 쓴다. stay 면 누를 때까지 남는다. */
 let cardShowing = false;
 function potionCard({ title, name, sub, color, stay = false }, then) {
   if (cardShowing) return;
@@ -371,7 +377,7 @@ function guessDone() {
   act(null);
   $$('.hang.asking').forEach((h) => h.classList.remove('asking'));
   ANXIETY.forEach((d, i) => hangEl(d.key).style.setProperty('--wave', `${i * 45}ms`));
-  ask('짜잔, <b>나만의 물약</b> 완성! 진짜 물약이랑 얼마나 닮았을까?');
+  ask('짜잔, <b>나만의 물약</b> 완성! 사랑의 물약이랑 얼마나 닮았을까?');
   potionCard({
     title: '나만의 물약 완성!',
     name: `「${potionName(picked)}」`,
@@ -449,11 +455,11 @@ function setPhase(p) {
       act('귀찮으면 대신 저어 줄게', stirAll, true);
       break;
     case 'seal':
-      say(`마지막 병이 떠올랐어. 이 병엔 ${esc(josa(npc, '이', '가'))}${pc ? ` ${esc(pc)}에게` : ''} <b>아직 하지 못한 말</b>이 봉해져 있어. 빨간 <b>봉랍을 세 번 톡톡톡</b> 두드려서 깨 봐!`);
+      say(`마지막 병이 떠올랐어. 이 병엔 ${esc(josa(npc, '이', '가'))}${pc ? ` ${esc(pc)}에게` : ''} <b>아직 하지 못한 말</b>이 봉해져 있어. 병마개 <b>코르크를 세 번 톡톡톡</b> 두드려서 뽑아 봐!`);
       act(null);
       break;
     case 'done':
-      say(`완성이다냥!${st.guessed ? ` 나만의 물약은 진짜와 <b>${st.hits}/${st.guessed}</b>병 같았어.` : ''}`);
+      say(`완성이다냥!${st.guessed ? ` 나만의 물약은 사랑의 물약과 <b>${st.hits}/${st.guessed}</b>병 같았어.` : ''}`);
       act('레시피 보기', () => openBook('recipe'));
       break;
   }
@@ -492,7 +498,7 @@ $('#copyPrompt').addEventListener('click', async () => {
   const i = +(store.get('aa.menuPart') || 0) % n;
   const ok = await copyText(OOC_STEPS[i].text);
   if (ok) store.set('aa.menuPart', String(i + 1));
-  $('#copyPrompt').textContent = `📋 주문 ${((i + 1) % n) + 1}/${n} 복사`;
+  $('#copyPrompt').innerHTML = `${icon('copy')}주문 ${((i + 1) % n) + 1}/${n} 복사`;
   toast(ok ? `주문 ${i + 1}/${n}을 복사했어요.` : '복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
 });
 function runSample() {
@@ -602,7 +608,7 @@ function applyBrew() {
   brew = mixBrew(parts);
   setBrewVars(document.documentElement, brew);
   setLevel(st.poured.size / 12);
-  $('#brewText').textContent = brew ? `진짜 물약 ${colorName(brew)}` : '맹물';
+  $('#brewText').textContent = brew ? `사랑의 물약 ${colorName(brew)}` : '맹물';
   $('#vialReal').style.setProperty('--v', brew ? hsl(brew.h, brew.s, brew.l) : 'transparent');
 }
 
@@ -792,7 +798,7 @@ setLadle(0);
 const setRing = (p) => { ringFg.style.strokeDashoffset = String(100 - Math.min(1, p) * 100); };
 const nextVision = () => HIDDEN.find((d) => data.items[d.key] && !st.dev.has(d.key));
 
-let stirring = false, lastA = 0, lastSwish = 0, summoning = false;
+let stirring = false, lastA = 0, lastBuzz = 0, summoning = false;
 // 솥 아가리(납작한 타원) 기준 각도. 세로 차이를 타원 비율만큼 늘려 원처럼 돌린다.
 const angleOf = (e) => { const r = $('#pot .cauldron').getBoundingClientRect(); return Math.atan2((e.clientY - (r.top + r.height * RIM.cy / 360)) * (RIM.rx / RIM.ry), e.clientX - (r.left + r.width / 2)); };
 pot.addEventListener('pointerdown', (e) => {
@@ -810,17 +816,18 @@ pot.addEventListener('pointermove', (e) => {
   if (d < -Math.PI) d += Math.PI * 2;
   lastA = a; st.acc += Math.abs(d);
   setLadle(a); setRing(st.acc / TURN);
-  if (st.acc - lastSwish > .7) { lastSwish = st.acc; sfx.swish(Math.min(1, st.acc / TURN)); buzz(4); }
-  if (st.acc >= TURN) { st.acc = 0; lastSwish = 0; setRing(0); summon(); }
+  sfx.stir(Math.min(1, Math.abs(d) * 7)); // 젓는 빠르기만큼 물약이 출렁인다
+  if (st.acc - lastBuzz > .7) { lastBuzz = st.acc; buzz(4); }
+  if (st.acc >= TURN) { st.acc = 0; lastBuzz = 0; setRing(0); sfx.stirStop(); summon(); }
 });
-const endStir = () => { stirring = false; };
+const endStir = () => { stirring = false; sfx.stirStop(); };
 pot.addEventListener('pointerup', endStir);
 pot.addEventListener('pointercancel', endStir);
 pot.addEventListener('keydown', (e) => {
   if ((e.key !== 'Enter' && e.key !== ' ') || phase !== 'stir' || summoning || st.auto) return;
   e.preventDefault();
   const t0 = performance.now();
-  const spin = (t) => { const p = Math.min(1, (t - t0) / 700); setLadle(p * Math.PI * 2); setRing(p); if (p < 1) requestAnimationFrame(spin); else { setRing(0); summon(); } };
+  const spin = (t) => { const p = Math.min(1, (t - t0) / 700); setLadle(p * Math.PI * 2); setRing(p); sfx.stir(.7); if (p < 1) requestAnimationFrame(spin); else { setRing(0); summon(); } };
   requestAnimationFrame(spin);
 });
 
@@ -836,12 +843,12 @@ function stirAll() {
     const d = nextVision();
     if (!d) { st.auto = false; setRing(0); showVisionList(); return; }
     const t0 = performance.now();
-    rise.innerHTML = `<svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg>`;
+    rise.innerHTML = icon(d.key);
     rise.classList.remove('go'); void rise.offsetWidth; rise.classList.add('go');
     sfx.vision(); buzz(20);
     const spin = (t) => {
       const q = SPIN ? Math.min(1, (t - t0) / SPIN) : 1;
-      setLadle(q * Math.PI * 2); setRing(q);
+      setLadle(q * Math.PI * 2); setRing(q); sfx.stir(.75);
       if (q < 1) { requestAnimationFrame(spin); return; }
       st.dev.add(d.key);
       $(`#trackStars [data-k="${d.key}"]`).classList.add('on');
@@ -852,7 +859,7 @@ function stirAll() {
   one();
 }
 
-/** 환영 6개를 한 장에. 닫으면 봉랍 단계로 */
+/** 환영 6개를 한 장에. 닫으면 코르크 뽑기 단계로 */
 function showVisionList() {
   const ag = st.attachGuess;
   const rows = HIDDEN.filter((d) => data.items[d.key]).map((d) => {
@@ -861,7 +868,7 @@ function showVisionList() {
     const verdict = d.key === 'attach' && ag
       ? `<span class="vc-chip ${types.includes(ag) ? 'hit' : 'miss'}">${types.includes(ag) ? '✓ 내 예상과 같음' : `✕ 나는 ${esc(josa(ag, '이라고', '라고'))} 예상`}</span>` : '';
     return `<li class="vc">
-      <span class="vc-icon" aria-hidden="true"><svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg></span>
+      <span class="vc-icon" aria-hidden="true">${icon(d.key)}</span>
       <div class="vc-body">
         <div class="vc-head">
           <h3>${esc(d.name)}</h3>
@@ -880,7 +887,7 @@ function showVisionList() {
       <h2 class="s-title" id="sheetTitle">${esc(npc)}의 숨겨진 마음</h2>
     </header>
     <ol class="vc-list">${rows}</ol>
-    <div class="s-actions vc-actions"><button type="button" class="btn primary" data-close>봉랍 깨러 가기</button></div>
+    <div class="s-actions vc-actions"><button type="button" class="btn primary" data-close>마지막 병 열러 가기</button></div>
   `, false, () => { if (phase === 'stir') setPhase('seal'); });
 }
 
@@ -889,7 +896,7 @@ function summon() {
   if (!d || summoning || st.auto) return;
   summoning = true; stirring = false;
   const rise = $('#visionRise');
-  rise.innerHTML = `<svg viewBox="0 0 100 100">${FILM_ICONS[d.key]}</svg>`;
+  rise.innerHTML = icon(d.key);
   rise.classList.remove('go'); void rise.offsetWidth; rise.classList.add('go');
   sfx.vision(); buzz(30);
   setTimeout(() => {
@@ -910,7 +917,7 @@ function showVision(key) {
   const quad = key === 'attach'
     ? `<div class="langs" role="img" aria-label="사랑의 언어: ${esc((it.types || []).join(', ') || it.tag || '알 수 없음')}">${ATTACH_TYPES.map((t) => {
       const real = (it.types || []).includes(t), mine = ag === t;
-      return `<span class="lang${real ? ' on' : ''}${mine ? ' mine' : ''}">${real ? '✓ ' : ''}${t}${mine ? '<small>내 예상</small>' : ''}</span>`;
+      return `<span class="lang${real ? ' on' : ''}${mine ? ' mine' : ''}">${icon(LANG_ICON[t])}${t}${mine ? '<small>내 예상</small>' : ''}</span>`;
     }).join('')}</div>`
     : '';
   openSheet(`
@@ -934,7 +941,7 @@ function showVision(key) {
   `, false, () => { if (phase === 'stir' && !nextVision()) setPhase('seal'); });
 }
 
-/* ───────── 봉랍 ───────── */
+/* ───────── 코르크 뽑기 (세 번 두드리면 뽁) ───────── */
 const flaskBtn = $('#flaskBtn');
 flaskBtn.addEventListener('click', () => {
   if (phase !== 'seal') return;
@@ -943,25 +950,48 @@ flaskBtn.addEventListener('click', () => {
   flaskBtn.classList.remove('knock'); void flaskBtn.offsetWidth; flaskBtn.classList.add('knock');
   if (st.knocks < 3) {
     sfx.knock(); buzz(15);
-    say(st.knocks === 1 ? '금이 갔다냥! 두 번 더.' : '거의 다 됐어… 마지막 한 번!');
+    say(st.knocks === 1 ? '코르크가 들썩했다냥! 두 번 더.' : '거의 빠졌어… 마지막 한 번!');
     return;
   }
   flaskBtn.classList.add('open');
-  sfx.crack(); buzz(50);
+  sfx.pop(); buzz(50);
   $('#trackSeal i').classList.add('on');
   setTimeout(openScroll, reduced ? 0 : 700);
 });
 
 const scrollDlg = $('#scrollDlg');
+/** "한국어 문장. (English line.)" → [한국어, 영어]. 괄호 속 영어 번역은 아래 작은 줄로 떼어 읽기 쉽게 */
+function splitEn(t) {
+  const m = /^(.*?)\s*\(([^()]*[A-Za-z][^()]*)\)\s*$/.exec(t || '');
+  return m && /[가-힣]/.test(m[1]) ? [m[1], m[2]] : [t || '', ''];
+}
 function openScroll() {
   const dp = data.deepest;
-  const title = dp && dp.title ? `“${dp.title}”` : '';
+  const [ko, en] = splitEn(dp && dp.title ? dp.title : '');
+  const title = ko ? `“${ko}”` : '';
   const body = dp ? dp.body : 'AI 답에서 아직 하지 못한 말을 찾지 못했어요. 세 번째 주문의 답 끝에 DEEP 줄이 있는지 확인해 보세요.';
   $('#toRecipe').hidden = true;
-  $('#deepTitle').textContent = ''; $('#deepBody').textContent = '';
+  $('#deepEn').hidden = !en;
+  // 글 자리를 미리 다 잡아 둔다(보이지 않게). 타자 치는 동안 종이 길이가 변하지 않는다.
+  const lines = [[$('#deepTitle'), title, 55], [$('#deepEn'), en, 22], [$('#deepBody'), body, 26]].filter(([, t]) => t);
+  [$('#deepTitle'), $('#deepEn'), $('#deepBody')].forEach((el) => { el.textContent = ''; });
+  lines.forEach(([el, t]) => { el.innerHTML = '<span class="tw-on"></span><span class="tw-off"></span>'; el.lastChild.textContent = t; });
+  scrollDlg.classList.remove('done-typing');
   scrollDlg.showModal();
-  // 두루마리가 다 펼쳐진 뒤 한 마디 → 풀이 순서로 한 글자씩. 종이를 누르면 끝까지 바로 보인다.
-  typeLines([[$('#deepTitle'), title, 55], [$('#deepBody'), body, 28]], 1100, () => { $('#toRecipe').hidden = false; });
+  const paper = $('.scroll-paper', scrollDlg);
+  paper.scrollTop = 0;
+  const UNROLL = reduced ? 0 : 1150;
+  if (!reduced) {
+    // 아래 막대가 위에서부터 굴러 내려가고, 종이는 그 막대를 따라 같은 속도로 드러난다
+    const h = paper.getBoundingClientRect().height;
+    const ease = 'cubic-bezier(.33, .9, .3, 1)';
+    $('.scroll', scrollDlg).animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'ease-out' });
+    $('.scroll-roll.bottom', scrollDlg).animate([{ transform: `translateY(${-(h - 24)}px)` }, { transform: 'none' }], { duration: UNROLL, easing: ease });
+    paper.animate([{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: UNROLL, easing: ease });
+    sfx.page();
+  }
+  // 다 펼쳐진 뒤 한 마디 → 번역 → 풀이 순서로 한 글자씩. 종이를 누르면 끝까지 바로 보인다.
+  typeLines(lines, UNROLL + 150, () => { scrollDlg.classList.add('done-typing'); $('#toRecipe').hidden = false; });
 }
 $('#toRecipe').addEventListener('click', () => { scrollDlg.close(); });
 scrollDlg.addEventListener('close', () => {
@@ -970,9 +1000,9 @@ scrollDlg.addEventListener('close', () => {
   setPhase('done');
   const ranked = ANXIETY.filter((d) => data.items[d.key]?.pct != null).sort((a, b) => data.items[b.key].pct - data.items[a.key].pct);
   act(null);
-  say('완성이다냥! <b>진짜 물약</b>이 다 끓었어.');
+  say('완성이다냥! <b>사랑의 물약</b>이 다 끓었어.');
   potionCard({
-    title: '진짜 물약 완성!',
+    title: '사랑의 물약 완성!',
     name: `「${potionName(ranked)}」`,
     sub: [brew && colorName(brew), st.guessed ? `나만의 물약과 ${st.hits}/${st.guessed}병 같음` : '', witchRank(st.guessed, st.hits)].filter(Boolean).join(' · '),
     color: brew ? hsl(brew.h, brew.s, brew.l) : 'var(--brew)',
@@ -980,26 +1010,26 @@ scrollDlg.addEventListener('close', () => {
   }, () => { setPhase('done'); openBook('recipe'); });
 });
 
-/** [요소, 글, 글자 간격ms] 를 차례로 타자 친다 */
+/** [요소, 글, 글자 간격ms] 를 차례로 타자 친다. 요소 안에는 보이는 부분(.tw-on)과 아직 안 보이는 나머지(.tw-off)가 있다 */
 function typeLines(lines, delay, done) {
   const paper = $('.scroll-paper');
   let skip = false;
   const onSkip = () => { skip = true; };
-  const finish = () => { lines.forEach(([el, t]) => { el.textContent = t; el.classList.remove('typing'); }); paper.removeEventListener('click', onSkip); done(); };
-  if (reduced) { finish(); return; }
+  const set = (el, chars, i) => { el.firstChild.textContent = chars.slice(0, i).join(''); el.lastChild.textContent = chars.slice(i).join(''); };
+  const finish = () => { lines.forEach(([el, t]) => { el.textContent = t; }); paper.removeEventListener('click', onSkip); done(); };
+  if (reduced || !lines.length) { finish(); return; }
   paper.addEventListener('click', onSkip);
   let li = 0, i = 0;
   const tick = () => {
     if (skip) { finish(); return; }
     const [el, text, gap] = lines[li];
     const chars = [...text];
-    el.classList.add('typing');
     i++;
-    el.textContent = chars.slice(0, i).join('');
+    set(el, chars, i);
     if (i < chars.length) { setTimeout(tick, /[.,!?…\n]/.test(chars[i - 1]) ? gap * 6 : gap); return; }
-    el.classList.remove('typing');
+    el.textContent = text; // 끝난 줄은 커서 없이 그냥 글
     li++; i = 0;
-    if (li < lines.length) setTimeout(tick, 450); else finish();
+    if (li < lines.length) setTimeout(tick, 350); else finish();
   };
   setTimeout(tick, delay);
 }

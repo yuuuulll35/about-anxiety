@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>마음 달이는 다락방</title>
-  <meta name="description" content="달밤의 다락방에서 마녀 고양이와 함께 NPC의 마음을 사랑의 묘약으로 달이는 작은 게임. 나만의 물약을 먼저 만들고, AI 레시피로 끓인 진짜 물약과 비교한다.">
+  <meta name="description" content="달밤의 다락방에서 마녀 고양이와 함께 NPC의 마음을 사랑의 묘약으로 달이는 작은 게임. 나만의 물약을 먼저 만들고, AI 레시피로 끓인 사랑의 물약과 비교한다.">
   <meta property="og:title" content="마음 달이는 다락방">
-  <meta property="og:description" content="매달린 재료 12병, 연기 속 환영 6개, 봉랍으로 막아 둔 마지막 한 방울.">
+  <meta property="og:description" content="매달린 재료 12병, 연기 속 환영 6개, 코르크로 막아 둔 마지막 한 방울.">
   <meta name="theme-color" content="#140f26">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M10 40 C8 26 14 18 20 15 L17 3 L28 11 C30 10.5 34 10.5 36 11 L47 3 L44 15 C50 18 56 26 54 40 C52 54 42 60 32 60 C22 60 12 54 10 40 Z' fill='%231a1430' stroke='%23b6a6ff' stroke-width='2'/%3E%3Cpath d='M18 36 Q23 30 28 36 Q23 40 18 36 Z M36 36 Q41 30 46 36 Q41 40 36 36 Z' fill='%23b6f36b'/%3E%3Cpath d='M23 32 V40 M41 32 V40' stroke='%231a1430' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M30 44 H34 L32 46.5 Z' fill='%23ff9fc4'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;700&family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=33">
+  <link rel="stylesheet" href="style.css?v=40">
 </head>
 <body>
   <div class="stage" id="stage" data-phase="title">
@@ -52,33 +52,53 @@
         <div class="vision-rise" id="visionRise" aria-hidden="true"></div>
         <p class="stir-hint" aria-hidden="true"><span>↻</span>여기를 빙글빙글</p>
         <button type="button" class="guess-done" id="guessDone" aria-label="물약 완성. 눌러서 계속"><span class="gd-rays"></span><svg class="gd-flask" viewBox="0 0 80 100" aria-hidden="true"><path class="gd-glass" d="M30 6 H50 V34 C64 40 72 52 72 66 C72 84 58 96 40 96 C22 96 8 84 8 66 C8 52 16 40 30 34 Z"/><path class="gd-liquid" d="M11 64 Q25 58 40 64 T69 64 C70 82 57 93 40 93 C23 93 10 82 11 64 Z"/><path class="gd-shine" d="M20 62 Q18 76 28 86"/><rect class="gd-cork" x="27" y="0" width="26" height="10" rx="3"/></svg><span class="gd-title" id="gdTitle"></span><span class="gd-name" id="gdName"></span><span class="gd-sub" id="gdSub"></span><span class="gd-sparks"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></span></button>
-        <div class="hearth" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
         <div class="ignite" aria-hidden="true"><span class="ig-flash"></span><span class="ig-flames"><i class="fl1"></i><i class="fl2"></i><i class="fl3"></i><i class="fl4"></i><i class="fl5"></i><i class="fl6"></i><i class="fl7"></i></span><span class="ig-embers"><b class="e1"></b><b class="e2"></b><b class="e3"></b><b class="e4"></b><b class="e5"></b><b class="e6"></b><b class="e7"></b><b class="e8"></b><b class="e9"></b><b class="e10"></b></span><span class="ig-stamp" id="igniteStamp">레시피 완성</span></div>
-        <button class="flask-btn" id="flaskBtn" type="button" aria-label="봉랍 두드리기. 세 번 두드리면 깨집니다" hidden>
-          <svg class="flask" viewBox="0 0 200 260" aria-hidden="true">
+        <button class="flask-btn" id="flaskBtn" type="button" aria-label="코르크 두드리기. 세 번 두드리면 빠집니다" hidden>
+          <svg class="flask" viewBox="0 0 200 240" aria-hidden="true">
             <defs>
-              <clipPath id="flaskClip"><path d="M100 236 C44 198 22 164 34 132 C45 104 80 102 100 126 C120 102 155 104 166 132 C178 164 156 198 100 236 Z"/></clipPath>
-              <radialGradient id="flaskGlass" cx="38%" cy="35%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".5" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity=".14"/></radialGradient>
-              <radialGradient id="waxGrad" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#e2475a"/><stop offset=".7" stop-color="#a5182e"/><stop offset="1" stop-color="#6e0f1f"/></radialGradient>
-            </defs>
-            <path class="f-neck" d="M88 66 H112 V112 C112 118 116 120 118 124 H82 C84 120 88 118 88 112 Z"/>
+              <clipPath id="flaskClip"><circle cx="100" cy="148" r="69.5"/></clipPath>
+              <clipPath id="flaskClipIn"><circle cx="100" cy="148" r="53"/></clipPath>
+              <linearGradient id="flaskLiq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:color-mix(in srgb, var(--brew-l) 70%, #ffd9f0)"/><stop offset=".45" style="stop-color:var(--brew-l)"/><stop offset="1" style="stop-color:var(--brew-d)"/></linearGradient>
+              <linearGradient id="corkGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b07a46"/><stop offset=".5" stop-color="#ddb07a"/><stop offset="1" stop-color="#9c6a3a"/></linearGradient>
+                          </defs>
+            <g class="f-stars">
+              <path class="f-star s1" d="M24 92 l3 7 7 1 -5 5 1.5 7 -6.5 -3.5 -6.5 3.5 1.5 -7 -5 -5 7 -1 Z"/>
+              <path class="f-star s2" d="M176 70 l2.4 5.6 5.6 .8 -4 4 1.2 5.6 -5.2 -2.8 -5.2 2.8 1.2 -5.6 -4 -4 5.6 -.8 Z"/>
+              <path class="f-star s3" d="M186 160 l2 5 5 .7 -3.6 3.5 1 5 -4.4 -2.4 -4.4 2.4 1 -5 -3.6 -3.5 5 -.7 Z"/>
+              <path class="f-star s4" d="M14 178 l2 5 5 .7 -3.6 3.5 1 5 -4.4 -2.4 -4.4 2.4 1 -5 -3.6 -3.5 5 -.7 Z"/>
+              <path class="f-spark s5" d="M160 222 q1.5 -6 7 -7 q-5.5 -1 -7 -7 q-1.5 6 -7 7 q5.5 1 7 7 Z"/>
+              <path class="f-spark s6" d="M40 40 q1.2 -5 6 -6 q-4.8 -1 -6 -6 q-1.2 5 -6 6 q4.8 1 6 6 Z"/>
+            </g>
+            <!-- 병 몸통: 목과 둥근 배가 한 줄로 이어진 하나의 외곽선 (선이 서로 겹치지 않는다) -->
+            <path class="f-glass" d="M82 60 V78.3 A72 72 0 1 0 118 78.3 V60 Z"/>
             <g clip-path="url(#flaskClip)">
-              <path class="f-liquid" d="M20 156 Q60 144 100 156 T180 156 V250 H20 Z"/>
-              <circle class="f-bub b1" cx="78" cy="206" r="5"/><circle class="f-bub b2" cx="122" cy="214" r="4"/><circle class="f-bub b3" cx="100" cy="188" r="3"/>
+              <path class="f-liquid" d="M20 126 C45 112 70 112 100 122 C130 132 155 132 185 118 V230 H20 Z"/>
+              <path class="f-surface" clip-path="url(#flaskClipIn)" d="M20 126 C45 112 70 112 100 122 C130 132 155 132 185 118"/>
+              <g class="f-deco">
+                <path d="M78 182 C66 174 62 166 65 161 C68 156 75 157 78 162 C81 157 88 156 91 161 C94 166 90 174 78 182 Z"/>
+                <path d="M128 206 C120 201 117 196 119 192.5 C121 189 126 190 128 193 C130 190 135 189 137 192.5 C139 196 136 201 128 206 Z"/>
+                <path d="M62 200 q1.2 -5 5 -6 q-3.8 -1 -5 -6 q-1.2 5 -5 6 q3.8 1 5 6 Z"/>
+                <path d="M86 206 q1 -4 4 -5 q-3 -1 -4 -5 q-1 4 -4 5 q3 1 4 5 Z"/>
+              </g>
+              <circle class="f-bub b1" cx="110" cy="208" r="4"/><circle class="f-bub b2" cx="116" cy="214" r="3"/><circle class="f-bub b3" cx="100" cy="186" r="2.5"/>
             </g>
-            <path class="f-body" d="M100 236 C44 198 22 164 34 132 C45 104 80 102 100 126 C120 102 155 104 166 132 C178 164 156 198 100 236 Z"/>
-            <path class="f-shine" d="M50 140 C46 160 56 180 72 194"/>
-            <circle class="f-glint" cx="62" cy="128" r="5"/>
-            <rect class="f-cork" x="84" y="40" width="32" height="30" rx="6"/>
-            <path class="f-cork-line" d="M88 50 H112 M88 58 H112"/>
-            <g class="ribbon"><path d="M84 78 C92 82 108 82 116 78 L116 86 C108 90 92 90 84 86 Z"/><path d="M96 86 L86 112 L92 108 L95 116 L102 88 Z M104 86 L114 112 L108 108 L105 116 L98 88 Z"/></g>
-            <g class="wax">
-              <path class="wax-blob" d="M100 66 C114 64 124 74 122 86 C126 98 114 108 102 106 C88 110 76 100 78 88 C74 76 86 66 100 66 Z" fill="url(#waxGrad)"/>
-              <circle class="wax-ring" cx="100" cy="87" r="13"/>
-              <path class="wax-sigil" d="M100 95 C92 90 89 86 90.5 82.5 C92 79.5 96.5 79.5 100 83 C103.5 79.5 108 79.5 109.5 82.5 C111 86 108 90 100 95 Z"/>
-              <path class="crack c1" d="M84 76 L94 86 L88 96"/>
-              <path class="crack c2" d="M118 80 L106 90 L114 102"/>
+            <path class="f-body" d="M82 63 V78.3 A72 72 0 1 0 118 78.3 V63"/>
+            <path class="f-shine" d="M50 116 A60 60 0 0 0 43 170"/>
+            <circle class="f-glint" cx="62" cy="102" r="5"/>
+            <path class="f-shine thin" d="M141 189 A58 58 0 0 0 154.5 168"/>
+            <path class="f-shine neck" d="M91 72 V78"/>
+            <!-- 코르크: 두드릴 때마다 조금씩 들썩이다가 세 번째에 뽁 빠진다 -->
+            <g class="cork-g">
+              <g class="cork-lift">
+              <g transform="rotate(12 100 52)">
+                <rect class="f-cork" x="82" y="12" width="36" height="44" rx="11"/>
+                <path class="f-cork-line" d="M89 24 H111 M89 34 H111"/>
+                <circle class="f-cork-dot" cx="94" cy="44" r="2.2"/><circle class="f-cork-dot" cx="107" cy="29" r="1.8"/><circle class="f-cork-dot" cx="96" cy="18" r="1.5"/>
+              </g>
+              </g>
             </g>
+            <rect class="f-lip" x="73" y="50" width="54" height="15" rx="7.5"/>
+            <path class="f-lip-shine" d="M80 55 H96"/>
           </svg>
         </button>
       </div>
@@ -144,11 +164,11 @@
     <footer class="hud" aria-label="진행 상황">
       <div class="track drops" id="trackDrops" aria-label="재료"></div>
       <div class="track stars" id="trackStars" aria-label="환영"></div>
-      <div class="track seal" id="trackSeal" aria-label="봉랍"><i></i></div>
+      <div class="track seal" id="trackSeal" aria-label="코르크"><i></i></div>
       <div class="hud-brew">
         <span class="mini-vial guess" id="vialGuess" title="나만의 물약"><i></i></span>
         <span class="arrow" aria-hidden="true">→</span>
-        <span class="mini-vial real" id="vialReal" title="진짜 물약"><i></i></span>
+        <span class="mini-vial real" id="vialReal" title="사랑의 물약"><i></i></span>
         <span class="brew-text" id="brewText">맹물</span>
       </div>
     </footer>
@@ -166,7 +186,7 @@
       <section class="page" data-page="menu">
         <p class="pg-no">주문서</p>
         <h2 id="bookTitle">무엇을 할까?</h2>
-        <button class="btn primary wide" type="button" id="copyPrompt">📋 주문 1/3 복사</button>
+        <button class="btn primary wide" type="button" id="copyPrompt">주문 1/3 복사</button>
         <button class="btn ghost wide" type="button" id="loadSample">예시로 체험하기</button>
         <button class="btn ghost wide" type="button" id="restart">처음부터 다시</button>
       </section>
@@ -191,6 +211,7 @@
       <div class="scroll-paper">
         <p class="letter-label" id="deepLabel"><span id="kNpc">NPC</span>, 아직 하지 못한 말</p>
         <blockquote class="letter-quote" id="deepTitle"></blockquote>
+        <p class="letter-en" id="deepEn" hidden></p>
         <p class="letter-body" id="deepBody"></p>
         <button class="btn primary wide" type="button" id="toRecipe" hidden>레시피로 기록하기</button>
       </div>
@@ -201,6 +222,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <p class="sr-only">마음 달이는 다락방은 롤플레이 캐릭터의 감정을 놀이처럼 읽는 곳입니다. 실제 심리 진단이 아닙니다.</p>
 
-  <script type="module" src="js/app.js?v=32"></script>
+  <script type="module" src="js/app.js?v=40"></script>
 </body>
 </html>
